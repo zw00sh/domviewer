@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - Home</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a, nav button { color: #0066cc; text-decoration: none; background: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; cursor: pointer; font-size: 0.9rem; }
+    nav a:hover, nav button:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    button { margin: 0.25rem; padding: 0.5rem 1rem; cursor: pointer; }
+    .controls { margin-bottom: 1.5rem; }
+    #sandbox { border: 2px dashed #aaa; padding: 1rem; min-height: 80px; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    .card { border: 1px solid #ddd; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    .card h3 { margin-top: 0; }
+    #payload-input { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.85rem; padding: 0.5rem; border: 1px solid #ccc; border-radius: 3px; resize: vertical; }
+    #inject-status { font-size: 0.85rem; color: #666; margin-top: 0.4rem; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test" class="active">Home</a>
+    <a href="/test/about">About</a>
+    <a href="/test/products">Products</a>
+    <a href="/test/blog">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a></div>
+
+  <h1>domviewer test site</h1>
+  <p>A multi-page test site for exercising domviewer and spider payloads.</p>
+  <p>Open the <a href="/" target="_blank">dashboard</a> in another tab to see the mirrored DOM.</p>
+
+  <div class="card">
+    <h3>Inject payload</h3>
+    <p>Copy the <code>&lt;script&gt;</code> tag from the dashboard and paste it below, then click Inject.</p>
+    <textarea id="payload-input" rows="3" placeholder='<script src="http://localhost:3001/payload.js/..."></script>'></textarea>
+    <div>
+      <button id="btn-inject">Inject</button>
+      <span id="inject-status"></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="btn-add">Add Element</button>
+    <button id="btn-remove">Remove Element</button>
+    <button id="btn-text">Change Text</button>
+    <button id="btn-attr">Toggle Attribute</button>
+    <button id="btn-nested">Add Nested Structure</button>
+  </div>
+
+  <div id="sandbox">
+    <p>Initial sandbox content.</p>
+  </div>
+
+  <h2>Pages</h2>
+  <div class="card">
+    <h3><a href="/test/products">Products</a></h3>
+    <p>Browse product listings with sub-pages for each item.</p>
+  </div>
+  <div class="card">
+    <h3><a href="/test/blog">Blog</a></h3>
+    <p>Blog posts with individual article pages.</p>
+  </div>
+  <div class="card">
+    <h3><a href="/test/about">About</a></h3>
+    <p>About page with team info.</p>
+  </div>
+
+  <script>
+    // DOM XSS sink: parse user-supplied HTML and inject any <script> elements.
+    // Deliberately vulnerable — simulates an unsafe innerHTML-based injection point.
+    document.getElementById('btn-inject').addEventListener('click', () => {
+      const input = document.getElementById('payload-input').value.trim();
+      const status = document.getElementById('inject-status');
+      if (!input) { status.textContent = 'Paste a <script> tag first.'; return; }
+
+      const tmp = document.createElement('div');
+      tmp.innerHTML = input; // vulnerable sink
+
+      const scripts = tmp.querySelectorAll('script');
+      if (scripts.length === 0) { status.textContent = 'No <script> tags found in input.'; return; }
+
+      for (const s of scripts) {
+        const el = document.createElement('script');
+        if (s.getAttribute('src')) el.src = s.getAttribute('src');
+        else el.textContent = s.textContent;
+        document.body.appendChild(el);
+      }
+      status.textContent = `Injected ${scripts.length} script(s).`;
+      document.getElementById('payload-input').value = '';
+    });
+
+    const sandbox = document.getElementById('sandbox');
+    let counter = 0;
+
+    document.getElementById('btn-add').addEventListener('click', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Added element #' + (++counter);
+      sandbox.appendChild(div);
+    });
+
+    document.getElementById('btn-remove').addEventListener('click', () => {
+      if (sandbox.lastElementChild) sandbox.removeChild(sandbox.lastElementChild);
+    });
+
+    document.getElementById('btn-text').addEventListener('click', () => {
+      const first = sandbox.firstElementChild;
+      if (first) first.textContent = 'Text changed at ' + new Date().toLocaleTimeString();
+    });
+
+    document.getElementById('btn-attr').addEventListener('click', () => {
+      const first = sandbox.firstElementChild;
+      if (first) {
+        if (first.classList.contains('highlighted')) {
+          first.classList.remove('highlighted');
+          first.style.removeProperty('background');
+        } else {
+          first.classList.add('highlighted');
+          first.style.background = '#ffffcc';
+        }
+      }
+    });
+
+    document.getElementById('btn-nested').addEventListener('click', () => {
+      const ul = document.createElement('ul');
+      for (let i = 1; i <= 3; i++) {
+        const li = document.createElement('li');
+        li.textContent = 'Item ' + i;
+        ul.appendChild(li);
+      }
+      sandbox.appendChild(ul);
+    });
+  </script>
+</body>
+</html>

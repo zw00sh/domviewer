@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - Spider Payload Deep Dive</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a { color: #0066cc; text-decoration: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; }
+    nav a:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    article { line-height: 1.6; }
+    code { background: #f0f0f0; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; }
+    pre { background: #f0f0f0; padding: 1rem; border-radius: 4px; overflow-x: auto; }
+    .post-nav { display: flex; justify-content: space-between; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test">Home</a>
+    <a href="/test/about">About</a>
+    <a href="/test/products">Products</a>
+    <a href="/test/blog" class="active">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a> / <a href="/test/blog">Blog</a> / Spider Deep Dive</div>
+
+  <article>
+    <h1>Spider Payload Deep Dive</h1>
+    <p><em>Feb 3, 2026</em></p>
+
+    <p>The spider payload crawls same-origin links starting from the current page. It discovers the site structure and reports URLs back to the server.</p>
+
+    <h2>Crawl Strategy</h2>
+    <p>The spider uses a breadth-first approach:</p>
+    <ol>
+      <li>Extract all <code>&lt;a href&gt;</code> links from the current document</li>
+      <li>Filter to same-origin URLs only</li>
+      <li>Queue undiscovered URLs for fetching</li>
+      <li>Report each discovered URL with its depth level</li>
+    </ol>
+
+    <h2>Message Format</h2>
+    <pre><code>{
+  "type": "result",
+  "url": "https://example.com/page",
+  "depth": 1,
+  "links": ["https://example.com/other"]
+}</code></pre>
+
+    <p>The spider respects depth limits and avoids re-crawling already-visited URLs. Results are streamed to all connected viewers in real time.</p>
+
+    <p>Try it on the <a href="/test">home page</a> to see it discover all the pages in this test site, including the <a href="/test/products">product</a> and <a href="/test/about">about</a> sections.</p>
+  </article>
+
+  <div class="post-nav">
+    <a href="/test/blog/first-post">&larr; Previous: Getting Started</a>
+    <span></span>
+  </div>
+
+</body>
+</html>

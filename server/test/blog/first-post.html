@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - Getting Started with domviewer</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a { color: #0066cc; text-decoration: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; }
+    nav a:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    article { line-height: 1.6; }
+    .post-nav { display: flex; justify-content: space-between; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test">Home</a>
+    <a href="/test/about">About</a>
+    <a href="/test/products">Products</a>
+    <a href="/test/blog" class="active">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a> / <a href="/test/blog">Blog</a> / Getting Started</div>
+
+  <article>
+    <h1>Getting Started with domviewer</h1>
+    <p><em>Jan 15, 2026</em></p>
+
+    <p>domviewer captures the DOM state of a target page and streams it in real time using Yjs for efficient delta synchronization.</p>
+
+    <h2>How It Works</h2>
+    <p>The loader script iframes the target page and establishes a WebSocket connection to the server. Payload modules are sent over the wire and dynamically loaded on the client.</p>
+
+    <h2>Key Concepts</h2>
+    <ul>
+      <li>Iframe isolation keeps the loader separate from target page scripts</li>
+      <li>MutationObserver tracks all DOM changes</li>
+      <li>Yjs CRDTs enable efficient binary delta sync</li>
+      <li>Pluggable payloads allow modular functionality</li>
+    </ul>
+
+    <p>Check out the <a href="/test/products">products</a> page for a demo of various DOM structures, or see the <a href="/test/blog/spider-deep-dive">spider deep dive</a> for crawling details.</p>
+  </article>
+
+  <div class="post-nav">
+    <span></span>
+    <a href="/test/blog/spider-deep-dive">Next: Spider Deep Dive &rarr;</a>
+  </div>
+
+</body>
+</html>

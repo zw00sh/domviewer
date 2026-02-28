@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - Blog</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a { color: #0066cc; text-decoration: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; }
+    nav a:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    .post-list { list-style: none; padding: 0; }
+    .post-list li { padding: 1rem; border-bottom: 1px solid #eee; }
+    .post-list h3 { margin: 0 0 0.25rem; }
+    .post-meta { color: #888; font-size: 0.85rem; }
+    button { padding: 0.5rem 1rem; cursor: pointer; margin-right: 0.5rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test">Home</a>
+    <a href="/test/about">About</a>
+    <a href="/test/products">Products</a>
+    <a href="/test/blog" class="active">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a> / <a href="/test/blog">Blog</a></div>
+
+  <h1>Blog</h1>
+
+  <button id="btn-add-post">Add Post</button>
+  <button id="btn-clear">Clear All</button>
+
+  <ul class="post-list" id="post-list">
+    <li>
+      <h3><a href="/test/blog/first-post">Getting Started with domviewer</a></h3>
+      <div class="post-meta">Jan 15, 2026</div>
+      <p>An introduction to DOM capture and live mirroring.</p>
+    </li>
+    <li>
+      <h3><a href="/test/blog/spider-deep-dive">Spider Payload Deep Dive</a></h3>
+      <div class="post-meta">Feb 3, 2026</div>
+      <p>How the spider payload discovers and crawls same-origin links.</p>
+    </li>
+    <li>
+      <h3>Advanced DOM Serialization Techniques</h3>
+      <div class="post-meta">Feb 10, 2026</div>
+      <p>A deep look at how MutationObserver and msgpack work together to efficiently serialize DOM state into compact binary deltas.</p>
+    </li>
+    <li>
+      <h3>WebSocket Protocol Design</h3>
+      <div class="post-meta">Feb 17, 2026</div>
+      <p>Exploring the binary frame format used to multiplex named payload channels over a single WebSocket connection.</p>
+    </li>
+    <li>
+      <h3>Building Custom Payload Modules</h3>
+      <div class="post-meta">Feb 24, 2026</div>
+      <p>A guide to implementing the payload module interface — init, destroy, and the send/on API — for custom instrumentation.</p>
+    </li>
+    <li>
+      <h3>Proxy Payload Internals</h3>
+      <div class="post-meta">Mar 3, 2026</div>
+      <p>How the proxy payload maintains a hidden offscreen iframe, captures bidirectional interactions, and syncs form state back to the viewer.</p>
+    </li>
+    <li>
+      <h3>Security Considerations</h3>
+      <div class="post-meta">Mar 10, 2026</div>
+      <p>Responsible disclosure, authorised testing contexts, and the ethical boundaries that guide development of this research tool.</p>
+    </li>
+    <li>
+      <h3>Performance Optimisation for Live DOM Sync</h3>
+      <div class="post-meta">Mar 17, 2026</div>
+      <p>Batching mutations, throttling scroll events, and using style deduplication to keep bandwidth and CPU usage low during active sessions.</p>
+    </li>
+  </ul>
+
+  <script>
+    const list = document.getElementById("post-list");
+    const titles = ["Advanced DOM Serialization", "WebSocket Protocol Design", "Yjs for Efficient Sync", "Building Payload Modules", "Security Considerations"];
+    let postIdx = 0;
+
+    document.getElementById("btn-add-post").addEventListener("click", () => {
+      const title = titles[postIdx % titles.length];
+      postIdx++;
+      const li = document.createElement("li");
+      li.innerHTML = `<h3>${title}</h3><div class="post-meta">${new Date().toLocaleDateString()}</div><p>Dynamically added blog post.</p>`;
+      list.prepend(li);
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      list.innerHTML = "<li><p><em>All posts cleared.</em></p></li>";
+    });
+  </script>
+</body>
+</html>

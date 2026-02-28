@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - About</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a { color: #0066cc; text-decoration: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; }
+    nav a:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    .team-member { display: flex; gap: 1rem; align-items: center; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.75rem; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test">Home</a>
+    <a href="/test/about" class="active">About</a>
+    <a href="/test/products">Products</a>
+    <a href="/test/blog">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a> / About</div>
+
+  <h1>About Us</h1>
+  <p>This is a test page for domviewer. It simulates a typical about page with team member listings.</p>
+
+  <h2>Team</h2>
+  <div id="team">
+    <div class="team-member">
+      <div class="avatar">A</div>
+      <div><strong>Alice</strong><br><em>Engineering</em></div>
+    </div>
+    <div class="team-member">
+      <div class="avatar">B</div>
+      <div><strong>Bob</strong><br><em>Design</em></div>
+    </div>
+  </div>
+
+  <h2>Actions</h2>
+  <button id="btn-add-member">Add Team Member</button>
+  <button id="btn-shuffle">Shuffle Order</button>
+
+  <script>
+    const team = document.getElementById("team");
+    const names = ["Charlie", "Dana", "Eve", "Frank", "Grace", "Hank"];
+    const roles = ["Backend", "Frontend", "DevOps", "Security", "QA", "Data"];
+    let nameIdx = 0;
+
+    document.getElementById("btn-add-member").addEventListener("click", () => {
+      const name = names[nameIdx % names.length];
+      const role = roles[nameIdx % roles.length];
+      nameIdx++;
+      const div = document.createElement("div");
+      div.className = "team-member";
+      div.innerHTML = `<div class="avatar">${name[0]}</div><div><strong>${name}</strong><br><em>${role}</em></div>`;
+      team.appendChild(div);
+    });
+
+    document.getElementById("btn-shuffle").addEventListener("click", () => {
+      const members = [...team.children];
+      for (let i = members.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        team.appendChild(members[j]);
+      }
+    });
+  </script>
+</body>
+</html>

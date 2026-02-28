@@ -1,0 +1,16 @@
+# Dependencies — reinstalled inside the build stage
+node_modules
+web/node_modules
+
+# Build artefacts — produced inside the build stage
+dist
+
+# Runtime database — mounted as a Docker volume
+data
+
+# VCS and editor artefacts
+.git
+.claude
+
+# OS noise
+.DS_Store

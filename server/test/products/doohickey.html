@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - Doohickey</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a { color: #0066cc; text-decoration: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; }
+    nav a:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    .detail { border: 1px solid #ddd; padding: 1.5rem; border-radius: 4px; }
+    .price { color: #2a7a2a; font-weight: 600; font-size: 1.3rem; margin: 1rem 0; }
+    button { padding: 0.5rem 1rem; cursor: pointer; margin-right: 0.5rem; }
+    .mystery-box { padding: 1rem; border: 2px dashed #aaa; margin-top: 1rem; min-height: 60px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test">Home</a>
+    <a href="/test/about">About</a>
+    <a href="/test/products" class="active">Products</a>
+    <a href="/test/blog">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a> / <a href="/test/products">Products</a> / Doohickey</div>
+
+  <div class="detail">
+    <h1>Doohickey</h1>
+    <p>Nobody knows what this does, but it's cheap.</p>
+    <div class="price">$9.99</div>
+    <button id="btn-reveal">Reveal Function</button>
+    <button id="btn-mutate">Mutate DOM</button>
+    <button id="btn-replace">Replace Content</button>
+  </div>
+
+  <div class="mystery-box" id="mystery">
+    <p>Click "Reveal Function" to find out what the Doohickey does.</p>
+  </div>
+
+  <p>See also: <a href="/test/products/widget">Widget</a> | <a href="/test/products/gadget">Gadget</a></p>
+
+  <script>
+    const mystery = document.getElementById("mystery");
+    const functions = [
+      "It tells time, but only in Roman numerals.",
+      "It dispenses exactly one grape per hour.",
+      "It hums at 440Hz when nobody is watching.",
+      "It translates whale songs into interpretive dance instructions.",
+      "It predicts the weather, but only for last Tuesday."
+    ];
+    let funcIdx = 0;
+
+    document.getElementById("btn-reveal").addEventListener("click", () => {
+      mystery.innerHTML = `<p><strong>Function:</strong> ${functions[funcIdx % functions.length]}</p>`;
+      funcIdx++;
+    });
+
+    document.getElementById("btn-mutate").addEventListener("click", () => {
+      const el = document.createElement("div");
+      el.style.padding = "0.5rem";
+      el.style.background = `hsl(${Math.random() * 360}, 70%, 90%)`;
+      el.style.borderRadius = "3px";
+      el.style.marginTop = "0.5rem";
+      el.textContent = "Mutation #" + (mystery.children.length) + " at " + new Date().toLocaleTimeString();
+      mystery.appendChild(el);
+    });
+
+    document.getElementById("btn-replace").addEventListener("click", () => {
+      mystery.innerHTML = "<p><em>Content replaced at " + new Date().toLocaleTimeString() + "</em></p>";
+    });
+  </script>
+</body>
+</html>

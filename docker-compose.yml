@@ -1,0 +1,18 @@
+services:
+  domviewer:
+    build: .
+    restart: unless-stopped
+    ports:
+      # Management dashboard + API
+      - "${MGMT_PORT:-3000}:3000"
+      # C2 server (payload delivery + WS)
+      - "${C2_PORT:-3001}:3001"
+    volumes:
+      # Persist SQLite database across container restarts
+      - domviewer-data:/app/data
+    environment:
+      - C2_PORT=3001
+      - MGMT_PORT=3000
+
+volumes:
+  domviewer-data:

@@ -1,0 +1,26 @@
+{
+  "name": "domviewer",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "build:web": "npm run build --prefix web",
+    "build:all": "node esbuild.config.mjs && npm run build --prefix web",
+    "dev": "node esbuild.config.mjs --watch",
+    "dev:web": "npm run dev --prefix web",
+    "start": "node server/index.js",
+    "test": "vitest run",
+    "test:e2e": "npx playwright test"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "better-sqlite3": "^12.6.2",
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "esbuild": "^0.24.0",
+    "vitest": "^4.0.18"
+  }
+}

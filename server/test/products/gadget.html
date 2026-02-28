@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - Gadget</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a { color: #0066cc; text-decoration: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; }
+    nav a:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    .detail { border: 1px solid #ddd; padding: 1.5rem; border-radius: 4px; }
+    .price { color: #2a7a2a; font-weight: 600; font-size: 1.3rem; margin: 1rem 0; }
+    button { padding: 0.5rem 1rem; cursor: pointer; margin-right: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test">Home</a>
+    <a href="/test/about">About</a>
+    <a href="/test/products" class="active">Products</a>
+    <a href="/test/blog">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a> / <a href="/test/products">Products</a> / Gadget</div>
+
+  <div class="detail">
+    <h1>Gadget</h1>
+    <p>An advanced gadget packed with features. Pairs well with the Widget.</p>
+    <div class="price">$49.99</div>
+    <button id="btn-add-spec">Add Spec Row</button>
+    <button id="btn-highlight-row">Highlight Random Row</button>
+  </div>
+
+  <h2>Specifications</h2>
+  <table id="specs-table">
+    <thead><tr><th>Property</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Weight</td><td>250g</td></tr>
+      <tr><td>Dimensions</td><td>10 x 5 x 3 cm</td></tr>
+      <tr><td>Battery</td><td>2000 mAh</td></tr>
+    </tbody>
+  </table>
+
+  <p>See also: <a href="/test/products/widget">Widget</a> | <a href="/test/products/doohickey">Doohickey</a></p>
+
+  <script>
+    const tbody = document.querySelector("#specs-table tbody");
+    const specs = [["Color", "Silver"], ["Material", "Aluminum"], ["Warranty", "2 years"], ["Connectivity", "Bluetooth 5.0"], ["Rating", "IP67"]];
+    let specIdx = 0;
+
+    document.getElementById("btn-add-spec").addEventListener("click", () => {
+      const [prop, val] = specs[specIdx % specs.length];
+      specIdx++;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${prop}</td><td>${val}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("btn-highlight-row").addEventListener("click", () => {
+      tbody.querySelectorAll("tr").forEach((r) => r.style.background = "");
+      const rows = tbody.querySelectorAll("tr");
+      if (rows.length > 0) {
+        const idx = Math.floor(Math.random() * rows.length);
+        rows[idx].style.background = "#ffffcc";
+      }
+    });
+  </script>
+</body>
+</html>

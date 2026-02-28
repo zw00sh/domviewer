@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Site - Products</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    nav { background: #f0f0f0; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    nav a { color: #0066cc; text-decoration: none; border: 1px solid #ccc; padding: 0.4rem 0.8rem; border-radius: 3px; }
+    nav a:hover { background: #e0e0e0; }
+    nav a.active { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .breadcrumb { font-size: 0.85rem; color: #666; margin-bottom: 1rem; }
+    .breadcrumb a { color: #0066cc; }
+    .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .product-card { border: 1px solid #ddd; padding: 1rem; border-radius: 4px; }
+    .product-card h3 { margin-top: 0; }
+    .price { color: #2a7a2a; font-weight: 600; font-size: 1.1rem; }
+    button { margin: 0.25rem; padding: 0.5rem 1rem; cursor: pointer; }
+    .controls { margin-bottom: 1.5rem; }
+    .tag { display: inline-block; background: #e8e8e8; padding: 0.15rem 0.5rem; border-radius: 2px; font-size: 0.8rem; margin-right: 0.25rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/test">Home</a>
+    <a href="/test/about">About</a>
+    <a href="/test/products" class="active">Products</a>
+    <a href="/test/blog">Blog</a>
+    <a href="/test/contact">Contact</a>
+  </nav>
+
+  <div class="breadcrumb"><a href="/test">Home</a> / <a href="/test/products">Products</a></div>
+
+  <h1>Products</h1>
+
+  <div class="controls">
+    <button id="btn-add-product">Add Product</button>
+    <button id="btn-toggle-prices">Toggle Prices</button>
+    <button id="btn-sort">Sort A-Z</button>
+  </div>
+
+  <div class="product-grid" id="product-grid">
+    <div class="product-card">
+      <h3><a href="/test/products/widget">Widget</a></h3>
+      <span class="tag">hardware</span>
+      <p>A versatile widget for testing.</p>
+      <div class="price">$19.99</div>
+    </div>
+    <div class="product-card">
+      <h3><a href="/test/products/gadget">Gadget</a></h3>
+      <span class="tag">electronics</span>
+      <p>An advanced gadget with features.</p>
+      <div class="price">$49.99</div>
+    </div>
+    <div class="product-card">
+      <h3><a href="/test/products/doohickey">Doohickey</a></h3>
+      <span class="tag">misc</span>
+      <p>Nobody knows what this does.</p>
+      <div class="price">$9.99</div>
+    </div>
+  </div>
+
+  <script>
+    const grid = document.getElementById("product-grid");
+    let prodCount = 0;
+    const prodNames = ["Thingamajig", "Whatchamacallit", "Contraption", "Gizmo", "Doodad"];
+    const tags = ["hardware", "electronics", "misc", "software", "experimental"];
+
+    document.getElementById("btn-add-product").addEventListener("click", () => {
+      const name = prodNames[prodCount % prodNames.length];
+      const tag = tags[prodCount % tags.length];
+      const price = (Math.random() * 100).toFixed(2);
+      prodCount++;
+      const card = document.createElement("div");
+      card.className = "product-card";
+      card.innerHTML = `<h3>${name}</h3><span class="tag">${tag}</span><p>Dynamically added product.</p><div class="price">$${price}</div>`;
+      grid.appendChild(card);
+    });
+
+    document.getElementById("btn-toggle-prices").addEventListener("click", () => {
+      grid.querySelectorAll(".price").forEach((el) => {
+        el.style.display = el.style.display === "none" ? "" : "none";
+      });
+    });
+
+    document.getElementById("btn-sort").addEventListener("click", () => {
+      const cards = [...grid.children];
+      cards.sort((a, b) => a.querySelector("h3").textContent.localeCompare(b.querySelector("h3").textContent));
+      cards.forEach((c) => grid.appendChild(c));
+    });
+  </script>
+</body>
+</html>
