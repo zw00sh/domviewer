@@ -23,6 +23,14 @@ const VOID_ELEMENTS = new Set([
 ]);
 
 /**
+ * Elements whose text children must be emitted verbatim (no HTML escaping).
+ * CSS and JS content uses characters like `>` in selectors and comparison
+ * operators that must not be entity-encoded.
+ * @type {Set<string>}
+ */
+const RAW_TEXT_ELEMENTS = new Set(["style", "script"]);
+
+/**
  * Escape a string for safe insertion into HTML attribute values or text content.
  * @param {string} str
  * @returns {string}
@@ -81,16 +89,25 @@ function renderNode(nodesMap, id, meta, opts) {
 
     let inner = "";
     if (children) {
-      for (let i = 0; i < children.length; i++) {
-        inner += renderNode(nodesMap, children[i], meta, opts);
+      if (RAW_TEXT_ELEMENTS.has(tag)) {
+        // Emit text children verbatim — CSS/JS must not have `>` etc. entity-encoded
+        for (const childId of children) {
+          const child = nodesMap.get(childId);
+          if (child && child.type === 3) inner += child.text || "";
+        }
+      } else {
+        for (let i = 0; i < children.length; i++) {
+          inner += renderNode(nodesMap, children[i], meta, opts);
+        }
       }
     }
 
-    // Inject <base> tag and captured styles in <head>
+    // Inject <meta charset>, <base> tag, and captured styles in <head>
     if (tag === "head" && meta) {
+      const charsetTag = '<meta charset="utf-8">';
       const baseTag = meta.baseUrl ? `<base href="${escapeHtml(meta.baseUrl)}" target="_blank">` : "";
       const styleTag = meta.styles ? `<style>${meta.styles}</style>` : "";
-      inner = baseTag + inner + styleTag;
+      inner = charsetTag + baseTag + inner + styleTag;
     }
 
     return `<${tag}${attrStr}>${inner}</${tag}>`;

@@ -115,7 +115,55 @@ describe("renderToHtml", () => {
       meta.styles = "body { color: red; }";
     });
     const html = renderToHtml(nodes, "r", meta);
+    expect(html).toContain('<meta charset="utf-8">');
     expect(html).toContain('<base href="https://example.com/"');
     expect(html).toContain("<style>body { color: red; }</style>");
+  });
+
+  it("injects charset in head even without baseUrl or styles", () => {
+    const { nodes, meta } = buildDoc((nodes) => {
+      addElement(nodes, "r", "html", {}, ["h"]);
+      addElement(nodes, "h", "head");
+    });
+    const html = renderToHtml(nodes, "r", meta);
+    expect(html).toContain('<meta charset="utf-8">');
+  });
+
+  it("injects charset before base tag", () => {
+    const { nodes, meta } = buildDoc((nodes, meta) => {
+      addElement(nodes, "r", "html", {}, ["h"]);
+      addElement(nodes, "h", "head");
+      meta.baseUrl = "https://example.com/";
+    });
+    const html = renderToHtml(nodes, "r", meta);
+    const charsetPos = html.indexOf('<meta charset="utf-8">');
+    const basePos = html.indexOf("<base ");
+    expect(charsetPos).toBeGreaterThanOrEqual(0);
+    expect(basePos).toBeGreaterThanOrEqual(0);
+    expect(charsetPos).toBeLessThan(basePos);
+  });
+
+  it("does not escape CSS content in inline style elements", () => {
+    const { nodes, meta } = buildDoc((nodes) => {
+      addElement(nodes, "r", "html", {}, ["h"]);
+      addElement(nodes, "h", "head", {}, ["s"]);
+      addElement(nodes, "s", "style", {}, ["t"]);
+      addText(nodes, "t", "div > span { color: red; }");
+    });
+    const html = renderToHtml(nodes, "r", meta);
+    expect(html).toContain("div > span { color: red; }");
+    expect(html).not.toContain("&gt;");
+  });
+
+  it("preserves unicode CSS content (e.g. font icon codepoints)", () => {
+    const unicodeChar = "\uF1CD"; // U+F1CD as resolved by browser CSSOM
+    const { nodes, meta } = buildDoc((nodes) => {
+      addElement(nodes, "r", "html", {}, ["h"]);
+      addElement(nodes, "h", "head", {}, ["s"]);
+      addElement(nodes, "s", "style", {}, ["t"]);
+      addText(nodes, "t", `.icon::before { content: "${unicodeChar}"; }`);
+    });
+    const html = renderToHtml(nodes, "r", meta);
+    expect(html).toContain(unicodeChar);
   });
 });
