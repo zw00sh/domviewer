@@ -24,6 +24,22 @@
  */
 
 /**
+ * Re-escape non-ASCII characters in CSS text to `\XXXX ` escape sequences.
+ * The browser CSSOM resolves CSS escapes (e.g. `\f075`) into actual Unicode
+ * characters in `rule.cssText`. These multi-byte UTF-8 characters can get
+ * garbled when the rendered HTML passes through `doc.write()` without a
+ * guaranteed UTF-8 encoding context. Re-escaping to ASCII-safe sequences
+ * avoids the issue entirely.
+ * @param {string} cssText
+ * @returns {string}
+ */
+export function reEscapeNonAsciiCss(cssText) {
+  return cssText.replace(/[\u0080-\uffff]/g, (ch) =>
+    "\\" + ch.charCodeAt(0).toString(16) + " "
+  );
+}
+
+/**
  * Resolve relative `url()` references inside a CSS string to absolute URLs.
  * Data URIs and fragment-only references are left unchanged.
  * @param {string} cssText
@@ -386,6 +402,7 @@ export function createSerializer() {
     }
 
     cssText = resolveStyleUrls(cssText, targetDoc.baseURI);
+    cssText = reEscapeNonAsciiCss(cssText);
 
     // Dedup: skip if styles haven't changed
     if (cssText === lastStylesHash) return null;

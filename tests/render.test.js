@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderToHtml } from "../shared/render.js";
+import { reEscapeNonAsciiCss } from "../client/serialize.js";
 
 /**
  * Helper to create a test node map and meta object with plain JS.
@@ -155,7 +156,7 @@ describe("renderToHtml", () => {
     expect(html).not.toContain("&gt;");
   });
 
-  it("preserves unicode CSS content (e.g. font icon codepoints)", () => {
+  it("preserves unicode CSS content in inline style text nodes", () => {
     const unicodeChar = "\uF1CD"; // U+F1CD as resolved by browser CSSOM
     const { nodes, meta } = buildDoc((nodes) => {
       addElement(nodes, "r", "html", {}, ["h"]);
@@ -165,5 +166,42 @@ describe("renderToHtml", () => {
     });
     const html = renderToHtml(nodes, "r", meta);
     expect(html).toContain(unicodeChar);
+  });
+
+  it("renders re-escaped meta.styles as valid CSS escape sequences", () => {
+    const cssWithEscapes = reEscapeNonAsciiCss('.fa::before { content: "\uF075"; }');
+    const { nodes, meta } = buildDoc((nodes, meta) => {
+      addElement(nodes, "r", "html", {}, ["h"]);
+      addElement(nodes, "h", "head");
+      meta.styles = cssWithEscapes;
+    });
+    const html = renderToHtml(nodes, "r", meta);
+    expect(html).toContain("\\f075 ");
+    expect(html).not.toContain("\uF075");
+  });
+});
+
+describe("reEscapeNonAsciiCss", () => {
+  it("converts non-ASCII characters to CSS hex escape sequences", () => {
+    const result = reEscapeNonAsciiCss('.fa::before { content: "\uF075"; }');
+    expect(result).toBe('.fa::before { content: "\\f075 "; }');
+  });
+
+  it("leaves ASCII-only CSS unchanged", () => {
+    const css = "body { color: red; }";
+    expect(reEscapeNonAsciiCss(css)).toBe(css);
+  });
+
+  it("escapes multiple non-ASCII characters", () => {
+    const result = reEscapeNonAsciiCss('\uF075\uF1CD');
+    expect(result).toBe("\\f075 \\f1cd ");
+  });
+
+  it("preserves CSS structure around escaped characters", () => {
+    const result = reEscapeNonAsciiCss('.a::before{content:"\uF075"}.b::after{content:"\uF1CD"}');
+    expect(result).toContain("\\f075 ");
+    expect(result).toContain("\\f1cd ");
+    expect(result).toContain(".a::before");
+    expect(result).toContain(".b::after");
   });
 });
