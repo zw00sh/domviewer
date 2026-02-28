@@ -90,6 +90,52 @@ test("special keys appear in keylogger as key events", async ({ browser }) => {
   await viewerCtx.close();
 });
 
+test("switching fields creates multiple timeline sessions", async ({ browser }) => {
+  const victimCtx = await browser.newContext();
+  const viewerCtx = await browser.newContext();
+  const victimPage = await victimCtx.newPage();
+  const viewerPage = await viewerCtx.newPage();
+
+  // Use the contact page which has input#name, input#email, and textarea#message
+  const { scriptTag, linkId } = await createLink(
+    MGMT_URL,
+    C2_URL,
+    ["keylogger"],
+    `${MGMT_URL}/test/contact`
+  );
+
+  await victimPage.goto(`${MGMT_URL}/test`);
+  const clientId = await injectAndWaitForClient(victimPage, MGMT_URL, scriptTag, linkId);
+
+  await viewerPage.goto(`${MGMT_URL}/keylogger/${clientId}`);
+
+  const loaderFrame = victimPage.frameLocator("iframe");
+
+  // Type in name, switch to email, switch back to name — should create 3 sessions
+  await loaderFrame.locator("#name").click();
+  await loaderFrame.locator("#name").type("alice");
+  await loaderFrame.locator("#email").click();
+  await loaderFrame.locator("#email").type("alice@example.com");
+  await loaderFrame.locator("#name").click();
+  await loaderFrame.locator("#name").type(" smith");
+
+  // Wait for entries to arrive
+  await expect(viewerPage.getByText("entries")).toBeVisible({ timeout: 10_000 });
+
+  // There should be 3 separate session cards (name → email → name again).
+  // Each card header contains exactly one <code> element with the descriptor text.
+  await expect(
+    viewerPage.locator("code").filter({ hasText: "input#name" })
+  ).toHaveCount(2, { timeout: 10_000 });
+
+  await expect(
+    viewerPage.locator("code").filter({ hasText: "input#email" })
+  ).toHaveCount(1, { timeout: 10_000 });
+
+  await victimCtx.close();
+  await viewerCtx.close();
+});
+
 test("clear button removes all entries", async ({ browser }) => {
   const victimCtx = await browser.newContext();
   const viewerCtx = await browser.newContext();
@@ -119,7 +165,7 @@ test("clear button removes all entries", async ({ browser }) => {
   ).toBeVisible({ timeout: 10_000 });
 
   // Click the clear (trash) button in the toolbar
-  await viewerPage.locator("button[class*='text-destructive'], button").filter({ has: viewerPage.locator("svg") }).last().click();
+  await viewerPage.getByTestId("keylogger-clear-btn").click();
 
   // After clearing, the empty state message should appear
   await expect(

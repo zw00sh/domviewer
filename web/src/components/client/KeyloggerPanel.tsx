@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useKeylogger } from "@/hooks/use-keylogger";
 import type { KeyloggerEntry } from "@/hooks/use-keylogger";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,6 @@ import {
   List,
   Trash2,
   Download,
-  Eye,
-  EyeOff,
   Keyboard,
   ChevronDown,
   ChevronRight,
@@ -34,10 +32,13 @@ interface KeyloggerPanelProps {
   onStatusChange?: (status: "connecting" | "open" | "closed") => void;
 }
 
-interface EntryGroup {
+interface InteractionSession {
+  sessionKey: string;
   descriptor: string;
   elementType: string;
   entries: KeyloggerEntry[];
+  startTime: number;
+  endTime: number;
 }
 
 function formatTimestamp(ts: number): string {
@@ -66,14 +67,36 @@ function TypeBadge({ type }: { type: string }) {
   return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
 }
 
+const WHITESPACE_SYMBOLS: Record<string, string> = {
+  " ": "·",
+  "\t": "→",
+  "\n": "↵",
+  "\r": "↵",
+};
+
+/** Splits a string into runs of normal text and whitespace symbols. */
+function renderWithWhitespace(data: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let buf = "";
+  for (const ch of data) {
+    const sym = WHITESPACE_SYMBOLS[ch];
+    if (sym) {
+      if (buf) { parts.push(buf); buf = ""; }
+      parts.push(
+        <kbd key={parts.length} className="px-1 py-0.5 text-xs font-mono bg-muted border rounded text-muted-foreground">
+          {sym}
+        </kbd>
+      );
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf) parts.push(buf);
+  return parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
 /** Renders the data portion of an entry with appropriate styling. */
-function EntryData({
-  entry,
-  masked,
-}: {
-  entry: KeyloggerEntry;
-  masked: boolean;
-}) {
+function EntryData({ entry }: { entry: KeyloggerEntry }) {
   if (entry.eventType === "key") {
     return (
       <kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted border rounded">
@@ -81,63 +104,64 @@ function EntryData({
       </kbd>
     );
   }
-  if (masked) {
-    return <span className="text-muted-foreground select-none">••••</span>;
-  }
   return (
     <span className="font-mono text-sm">
-      {entry.data || (
-        <em className="not-italic text-muted-foreground">(empty)</em>
-      )}
+      {entry.data
+        ? renderWithWhitespace(entry.data)
+        : <em className="not-italic text-muted-foreground">(empty)</em>}
     </span>
   );
 }
 
 /**
- * Displays captured keylogger entries with grouped and stream view modes.
- * Password fields are masked by default with a per-group reveal toggle.
+ * Displays captured keylogger entries with timeline (session) and stream view modes.
+ * The timeline view groups contiguous interactions on the same element as sessions,
+ * preserving chronological ordering when the user switches between fields.
  */
 export function KeyloggerPanel({
   clientId,
   onStatusChange,
 }: KeyloggerPanelProps) {
-  const COLLAPSE_THRESHOLD = 4;
-
   const { entries, status, clearEntries } = useKeylogger(clientId);
   const [viewMode, setViewMode] = useState<"grouped" | "stream">("grouped");
-  const [revealedGroups, setRevealedGroups] = useState<Set<string>>(new Set());
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [activeTypeFilters, setActiveTypeFilters] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     onStatusChange?.(status);
   }, [status, onStatusChange]);
 
-  const groups = useMemo<EntryGroup[]>(() => {
-    const map = new Map<string, EntryGroup>();
+  /** Split entries into contiguous interaction sessions (O(n) single pass). */
+  const sessions = useMemo<InteractionSession[]>(() => {
+    const result: InteractionSession[] = [];
+    let current: InteractionSession | null = null;
     for (const entry of entries) {
-      const key = entry.elementDescriptor;
-      if (!map.has(key)) {
-        map.set(key, {
-          descriptor: key,
+      if (!current || current.descriptor !== entry.elementDescriptor) {
+        current = {
+          sessionKey: String(result.length),
+          descriptor: entry.elementDescriptor,
           elementType: entry.elementType,
           entries: [],
-        });
+          startTime: entry.timestamp,
+          endTime: entry.timestamp,
+        };
+        result.push(current);
       }
-      map.get(key)!.entries.push(entry);
+      current.entries.push(entry);
+      current.endTime = entry.timestamp;
     }
-    return Array.from(map.values());
+    return result;
   }, [entries]);
 
   const availableTypes = useMemo<string[]>(() => {
-    const types = new Set(groups.map((g) => g.elementType));
+    const types = new Set(sessions.map((s) => s.elementType));
     return Array.from(types).sort();
-  }, [groups]);
+  }, [sessions]);
 
-  const filteredGroups = useMemo<EntryGroup[]>(() => {
-    if (activeTypeFilters.size === 0) return groups;
-    return groups.filter((g) => activeTypeFilters.has(g.elementType));
-  }, [groups, activeTypeFilters]);
+  const filteredSessions = useMemo<InteractionSession[]>(() => {
+    if (activeTypeFilters.size === 0) return sessions;
+    return sessions.filter((s) => activeTypeFilters.has(s.elementType));
+  }, [sessions, activeTypeFilters]);
 
   const filteredEntries = useMemo(() => {
     if (activeTypeFilters.size === 0) return entries;
@@ -165,28 +189,19 @@ export function KeyloggerPanel({
     URL.revokeObjectURL(url);
   }
 
-  function toggleReveal(descriptor: string) {
-    setRevealedGroups((prev) => {
+  function toggleExpand(sessionKey: string) {
+    setExpandedSessions((prev) => {
       const next = new Set(prev);
-      if (next.has(descriptor)) next.delete(descriptor);
-      else next.add(descriptor);
+      if (next.has(sessionKey)) next.delete(sessionKey);
+      else next.add(sessionKey);
       return next;
     });
   }
 
-  function toggleExpand(descriptor: string) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(descriptor)) next.delete(descriptor);
-      else next.add(descriptor);
-      return next;
-    });
-  }
-
-  /** Last value for a group (latest non-empty value entry). */
-  function getLastValue(group: EntryGroup): string {
-    for (let i = group.entries.length - 1; i >= 0; i--) {
-      if (group.entries[i].value) return group.entries[i].value;
+  /** Last non-empty value entry in a session. */
+  function getLastValue(session: InteractionSession): string {
+    for (let i = session.entries.length - 1; i >= 0; i--) {
+      if (session.entries[i].value) return session.entries[i].value;
     }
     return "";
   }
@@ -214,7 +229,7 @@ export function KeyloggerPanel({
                   <Layers className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Grouped view</TooltipContent>
+              <TooltipContent>Timeline view</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -252,6 +267,7 @@ export function KeyloggerPanel({
                 className="text-destructive hover:text-destructive"
                 onClick={clearEntries}
                 disabled={entries.length === 0}
+                data-testid="keylogger-clear-btn"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -299,61 +315,40 @@ export function KeyloggerPanel({
           </div>
         )}
 
-        {/* Grouped view */}
+        {/* Timeline view */}
         {viewMode === "grouped" &&
-          filteredGroups.map((group) => {
-            const isPassword = group.elementType === "password";
-            const revealed = revealedGroups.has(group.descriptor);
-            const lastValue = getLastValue(group);
-            const collapsed =
-              group.entries.length > COLLAPSE_THRESHOLD &&
-              !expandedGroups.has(group.descriptor);
+          filteredSessions.map((session) => {
+            const lastValue = getLastValue(session);
+            const collapsed = !expandedSessions.has(session.sessionKey);
+            const timeRange =
+              session.startTime !== session.endTime
+                ? `${formatTimestamp(session.startTime)} – ${formatTimestamp(session.endTime)}`
+                : formatTimestamp(session.startTime);
 
             return (
-              <Card key={group.descriptor}>
+              <Card key={session.sessionKey}>
                 <CardHeader className="pb-2 pt-3 px-4">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* Expand/collapse toggle for long groups */}
-                    {group.entries.length > COLLAPSE_THRESHOLD && (
-                      <button
-                        onClick={() => toggleExpand(group.descriptor)}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {collapsed ? (
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => toggleExpand(session.sessionKey)}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {collapsed ? (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <span className="text-xs text-muted-foreground font-mono shrink-0">
+                      {timeRange}
+                    </span>
                     <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
-                      {group.descriptor}
+                      {session.descriptor}
                     </code>
-                    <TypeBadge type={group.elementType} />
+                    <TypeBadge type={session.elementType} />
                     <Badge variant="outline" className="ml-auto">
-                      {group.entries.length}
+                      {session.entries.length}
                     </Badge>
-                    {isPassword && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2"
-                            onClick={() => toggleReveal(group.descriptor)}
-                          >
-                            {revealed ? (
-                              <EyeOff className="h-3 w-3" />
-                            ) : (
-                              <Eye className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {revealed ? "Hide value" : "Reveal value"}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-3">
@@ -361,18 +356,12 @@ export function KeyloggerPanel({
                   {collapsed ? (
                     <div className="text-xs">
                       <span className="text-muted-foreground">Value: </span>
-                      {isPassword && !revealed ? (
-                        <span className="text-muted-foreground select-none">
-                          ••••••••
-                        </span>
-                      ) : (
-                        <span className="font-mono">{lastValue || "(empty)"}</span>
-                      )}
+                      <span className="font-mono">{lastValue || "(empty)"}</span>
                     </div>
                   ) : (
                     <>
                       <div className="space-y-0.5">
-                        {group.entries.map((entry, i) => (
+                        {session.entries.map((entry, i) => (
                           <div
                             key={i}
                             className="flex items-center gap-2 text-xs py-0.5"
@@ -380,10 +369,7 @@ export function KeyloggerPanel({
                             <span className="text-muted-foreground font-mono w-20 shrink-0">
                               {formatTimestamp(entry.timestamp)}
                             </span>
-                            <EntryData
-                              entry={entry}
-                              masked={isPassword && !revealed}
-                            />
+                            <EntryData entry={entry} />
                             {entry.eventType !== "input" && (
                               <Badge
                                 variant="outline"
@@ -396,22 +382,12 @@ export function KeyloggerPanel({
                         ))}
                       </div>
                       {/* Final value footer */}
-                      {lastValue && (!isPassword || revealed) && (
+                      {lastValue && (
                         <div className="mt-2 pt-2 border-t text-xs">
                           <span className="text-muted-foreground">
-                            Final value:{" "}
+                            Value:{" "}
                           </span>
                           <span className="font-mono">{lastValue}</span>
-                        </div>
-                      )}
-                      {isPassword && !revealed && lastValue && (
-                        <div className="mt-2 pt-2 border-t text-xs">
-                          <span className="text-muted-foreground">
-                            Final value:{" "}
-                          </span>
-                          <span className="text-muted-foreground select-none">
-                            ••••••••
-                          </span>
                         </div>
                       )}
                     </>
@@ -448,10 +424,7 @@ export function KeyloggerPanel({
                       <TypeBadge type={entry.elementType} />
                     </TableCell>
                     <TableCell>
-                      <EntryData
-                        entry={entry}
-                        masked={entry.elementType === "password"}
-                      />
+                      <EntryData entry={entry} />
                     </TableCell>
                   </TableRow>
                 ))}

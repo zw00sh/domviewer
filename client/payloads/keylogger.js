@@ -110,6 +110,10 @@ function flush() {
 
 /** Capture-phase 'input' event: records typed characters and field values. */
 function onInput(e) {
+  // Deletion-type input events (Backspace, Delete, cut, drag-delete) carry
+  // no inserted character data — the keystroke is already captured by onKeyDown.
+  if (e.inputType && e.inputType.startsWith("delete")) return;
+
   const el = e.target;
   if (!el || !el.tagName) return;
   const tag = el.tagName.toLowerCase();
