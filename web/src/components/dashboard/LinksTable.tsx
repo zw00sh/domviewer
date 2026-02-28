@@ -8,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +18,7 @@ import {
 import { Copy, Check, Pencil, Trash2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { SpiderConfigFields } from "@/components/dashboard/SpiderConfigFields";
-import { AVAILABLE_PAYLOADS, getPayloadLabel } from "@/lib/constants";
+import { AVAILABLE_PAYLOADS, TOOLS, getPayloadLabel } from "@/lib/constants";
 import type { Link, Client, SpiderConfig } from "@/types/api";
 
 interface Props {
@@ -137,13 +136,16 @@ export function LinksTable({ links, clients, serverAddr, onUpdated }: Props) {
                 {link.id}
               </TableCell>
               <TableCell>
-                <div className="flex gap-1">
-                  {link.payloads.length === 0 ? (
-                    <span className="text-xs text-muted-foreground">none</span>
-                  ) : link.payloads.map((p) => (
-                    <Badge key={p} variant="secondary">
-                      {getPayloadLabel(p)}
-                    </Badge>
+                <div className="flex items-center gap-1">
+                  {TOOLS.filter((t) => t.isPayload).map(({ key, icon: Icon, title }) => (
+                    <Tooltip key={key}>
+                      <TooltipTrigger asChild>
+                        <span className={`p-1 cursor-default ${link.payloads.includes(key) ? "" : "opacity-25"}`}>
+                          <Icon className="h-4 w-4" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>{title}</TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </TableCell>
