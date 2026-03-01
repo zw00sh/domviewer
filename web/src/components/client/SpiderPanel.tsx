@@ -23,6 +23,8 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
   const [results, setResults] = useState<SpiderResult[]>([]);
   const [statsMessage, setStatsMessage] = useState("Connecting...");
   const [contentUrls, setContentUrls] = useState<Set<string>>(new Set());
+  /** Per-URL version counter — incremented each time new content is stored for that URL. */
+  const [contentVersions, setContentVersions] = useState<Map<string, number>>(new Map());
   const [pendingExfiltrations, setPendingExfiltrations] = useState<Set<string>>(new Set());
   const [spiderConfig, setSpiderConfig] = useState<SpiderConfig>(DEFAULT_SPIDER_CONFIG);
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -56,7 +58,16 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
       setResults(msg.results as SpiderResult[]);
       setStatsMessage(`${(msg.results as SpiderResult[]).length} URLs discovered`);
       if (Array.isArray(msg.contentUrls)) {
-        setContentUrls(new Set(msg.contentUrls as string[]));
+        const urls = msg.contentUrls as string[];
+        setContentUrls(new Set(urls));
+        // Initialize version counters for new URLs only; leave existing counters unchanged.
+        setContentVersions((prev) => {
+          const next = new Map(prev);
+          for (const u of urls) {
+            if (!next.has(u)) next.set(u, 1);
+          }
+          return next;
+        });
       }
     } else if (msg.type === "status") {
       setStatsMessage(
@@ -67,11 +78,18 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
         `Done — ${msg.discovered} discovered, ${msg.crawled} crawled`
       );
     } else if (msg.type === "content-stored") {
-      setContentUrls((prev) => new Set([...prev, msg.url as string]));
+      const storedUrl = msg.url as string;
+      setContentUrls((prev) => new Set([...prev, storedUrl]));
+      // Increment the version counter for only this URL so its ContentPreview re-fetches.
+      setContentVersions((prev) => {
+        const next = new Map(prev);
+        next.set(storedUrl, (next.get(storedUrl) ?? 0) + 1);
+        return next;
+      });
       // Remove from pending set when storage completes
       setPendingExfiltrations((prev) => {
         const next = new Set(prev);
-        next.delete(msg.url as string);
+        next.delete(storedUrl);
         return next;
       });
     } else if (msg.type === "exfiltrate-progress") {
@@ -216,6 +234,7 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
       <SpiderTree
         nodes={tree}
         contentUrls={contentUrls}
+        contentVersions={contentVersions}
         pendingExfiltrations={pendingExfiltrations}
         onExfiltrate={handleExfiltrate}
         onCrawl={handleCrawl}

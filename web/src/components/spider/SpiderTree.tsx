@@ -20,6 +20,8 @@ interface SpiderTreeProps {
   nodes: TreeNode[];
   /** Set of URLs that have stored content in the server DB. */
   contentUrls?: Set<string>;
+  /** Per-URL version counter — incremented when new content is stored for that URL. */
+  contentVersions?: Map<string, number>;
   /** Set of URLs currently being exfiltrated (show spinner). */
   pendingExfiltrations?: Set<string>;
   /** Callback to trigger manual exfiltration for a list of URLs. */
@@ -50,6 +52,7 @@ interface SpiderTreeProps {
 export function SpiderTree({
   nodes,
   contentUrls = new Set(),
+  contentVersions,
   pendingExfiltrations = new Set(),
   onExfiltrate,
   onCrawl,
@@ -104,6 +107,7 @@ export function SpiderTree({
           expandedDetails={expandedDetails}
           copiedUrl={copiedUrl}
           contentUrls={contentUrls}
+          contentVersions={contentVersions}
           pendingExfiltrations={pendingExfiltrations}
           onToggleExpand={toggleExpand}
           onToggleDetails={toggleDetails}
@@ -128,6 +132,7 @@ interface TreeNodeRowProps {
   expandedDetails: Set<string>;
   copiedUrl: string | null;
   contentUrls: Set<string>;
+  contentVersions?: Map<string, number>;
   pendingExfiltrations: Set<string>;
   onToggleExpand: (path: string) => void;
   onToggleDetails: (path: string) => void;
@@ -182,6 +187,7 @@ function TreeNodeRow({
   expandedDetails,
   copiedUrl,
   contentUrls,
+  contentVersions,
   pendingExfiltrations,
   onToggleExpand,
   onToggleDetails,
@@ -451,12 +457,12 @@ function TreeNodeRow({
               {new Date(node.result.discoveredAt).toLocaleString()}
             </div>
           )}
-          {/* Stored content preview — re-fetches when contentUrls.size changes */}
+          {/* Stored content preview — re-fetches only when this URL's version counter changes */}
           {clientId && node.result.url && (nodeHasContent ? (
             <ContentPreview
               clientId={clientId}
               url={node.result.url}
-              refreshKey={contentUrls.size}
+              refreshKey={contentVersions?.get(node.result.url) ?? 0}
               connected={connected}
               isPending={nodeIsPending}
               onExfiltrate={onExfiltrate}
@@ -477,6 +483,7 @@ function TreeNodeRow({
               expandedDetails={expandedDetails}
               copiedUrl={copiedUrl}
               contentUrls={contentUrls}
+              contentVersions={contentVersions}
               pendingExfiltrations={pendingExfiltrations}
               onToggleExpand={onToggleExpand}
               onToggleDetails={onToggleDetails}
