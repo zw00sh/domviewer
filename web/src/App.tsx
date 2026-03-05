@@ -4,6 +4,7 @@ import DomViewer from "@/pages/DomViewer";
 import SpiderResults from "@/pages/SpiderResults";
 import Proxy from "@/pages/Proxy";
 import Keylogger from "@/pages/Keylogger";
+import Cookies from "@/pages/Cookies";
 import Logs from "@/pages/Logs";
 
 function NotFound() {
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/spider/:id" element={<SpiderResults />} />
         <Route path="/proxy/:id" element={<Proxy />} />
         <Route path="/keylogger/:id" element={<Keylogger />} />
+        <Route path="/cookies/:id" element={<Cookies />} />
         <Route path="/logs" element={<Logs />} />
         <Route path="/logs/:clientId" element={<Logs />} />
         <Route path="*" element={<NotFound />} />

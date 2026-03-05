@@ -1,6 +1,6 @@
 # domviewer
 
-A browser-based C2 tool for security research. A modular client-side JS loader iframes the target page, connects via WebSocket, and dynamically loads pluggable payload modules (domviewer, spider, proxy, keylogger) sent by the server. Each "payload link" has a UUID and a configurable set of enabled payloads.
+A browser-based C2 tool for security research. A modular client-side JS loader iframes the target page, connects via WebSocket, and dynamically loads pluggable payload modules (domviewer, spider, proxy, keylogger, cookies) sent by the server. Each "payload link" has a UUID and a configurable set of enabled payloads.
 
 ## Quick Start
 
@@ -27,7 +27,8 @@ Target Browser          C2 Server (:3001)        Management Server (:3000)
 │  ├ domviewer │       │   routes messages│      │ REST API (/api/*)      │
 │  ├ proxy     │       │   to payload     │      │ Viewer WS (/view)      │
 │  ├ spider    │       │   handlers       │      │ Test site (/test*)     │
-│  └ keylogger │       └────────┬─────────┘      └──────────┬─────────────┘
+│  ├ keylogger │       └────────┬─────────┘      └──────────┬─────────────┘
+│  └ cookies   │
 └──────────────┘                │                            │
                                 ▼                            ▼
                          ┌─────────────┐            ┌──────────────┐
@@ -55,6 +56,10 @@ Crawls same-origin links from the target page and reports discovered URLs. Resul
 ### keylogger
 
 Attaches capture-phase `input`, `keydown`, and `change` listeners to the target's iframe document. Keystrokes and form field changes are batched and sent every 500ms. Entries are persisted in SQLite and displayed in the dashboard grouped by form element, with password fields masked by default.
+
+### cookies
+
+Polls `document.cookie` on the target page every 2 seconds and on each iframe navigation. Only cookies accessible via JavaScript are captured — cookies with the `HttpOnly` flag are excluded by the browser's security model. Changes (new, updated, or removed cookies) are persisted in SQLite. The dashboard shows both a deduplicated "current" view (last-write-wins) and a full chronological change history.
 
 ### proxy
 
@@ -102,12 +107,14 @@ An interactive browser proxy that creates a hidden offscreen iframe on the victi
 | `POST /api/clients/:id/spider/crawl` | Trigger crawl |
 | `GET /api/clients/:id/keylogger/entries` | Get keylogger entries |
 | `POST /api/clients/:id/keylogger/clear` | Clear keylogger entries |
+| `GET /api/clients/:id/cookies/entries` | Get cookie entries |
+| `POST /api/clients/:id/cookies/clear` | Clear cookie entries |
 
 ## How It Works
 
 1. Create a payload link via the dashboard (`POST /api/links`).
 2. Load `/payload.js/:linkId` on the target page. The loader iframes the target, connects to the C2 WebSocket, and receives payload modules.
-3. Each payload module (domviewer, spider, proxy, keylogger) runs in the target's context and streams data to the server via text and binary WebSocket frames.
+3. Each payload module (domviewer, spider, proxy, keylogger, cookies) runs in the target's context and streams data to the server via text and binary WebSocket frames.
 4. The server applies updates to per-client state and pushes them to connected viewer WebSockets.
 5. The React dashboard renders live views — read-only DOM mirror, interactive proxy, spider results, keylogger entries.
 

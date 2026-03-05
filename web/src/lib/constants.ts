@@ -1,8 +1,8 @@
-import { Eye, Bug, Gamepad2, Keyboard, BookOpen } from "lucide-react";
+import { Eye, Bug, Gamepad2, Keyboard, BookOpen, Cookie } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SpiderConfig } from "@/types/api";
 
-export const AVAILABLE_PAYLOADS = ["domviewer", "spider", "proxy", "keylogger"] as const;
+export const AVAILABLE_PAYLOADS = ["domviewer", "spider", "proxy", "keylogger", "cookies"] as const;
 export type PayloadName = (typeof AVAILABLE_PAYLOADS)[number];
 
 export const PAYLOAD_LABELS: Record<string, string> = {
@@ -10,6 +10,7 @@ export const PAYLOAD_LABELS: Record<string, string> = {
   spider: "Spider",
   proxy: "Remote Control",
   keylogger: "Keylogger",
+  cookies: "Cookies",
 };
 
 export function getPayloadLabel(name: string): string {
@@ -57,6 +58,14 @@ export const TOOLS: ToolDef[] = [
     title: "Keylogger",
     pathPrefix: "/keylogger/",
     route: (id) => `/keylogger/${id}`,
+    isPayload: true,
+  },
+  {
+    key: "cookies",
+    icon: Cookie,
+    title: "Cookies",
+    pathPrefix: "/cookies/",
+    route: (id) => `/cookies/${id}`,
     isPayload: true,
   },
   {

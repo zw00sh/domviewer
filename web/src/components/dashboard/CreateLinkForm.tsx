@@ -28,6 +28,7 @@ export function CreateLinkForm({ onCreated, onClose, c2Url }: CreateLinkFormProp
     domviewer: true,
     spider: false,
     proxy: false,
+    cookies: true,
   });
   const [spiderConfig, setSpiderConfig] = useState<SpiderConfig>(DEFAULT_SPIDER_CONFIG);
   const [redirectUri, setRedirectUri] = useState("");
