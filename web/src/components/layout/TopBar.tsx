@@ -127,6 +127,7 @@ function ClientTopBar({
               payloads={client.payloads}
               hasData={client.hasData}
               activePath={location.pathname}
+              connected={client.connected}
             />
 
             <div className="w-px h-4 bg-border mx-1" />

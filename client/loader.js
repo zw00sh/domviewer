@@ -56,6 +56,9 @@ import { encodeBinaryFrame, decodeBinaryFrame } from "../shared/binary-frame.js"
   // When true, the loader has been destroyed and must not reconnect
   let destroyed = false;
 
+  // Interval handle for URL polling fallback (hashchange, location.assign, etc.)
+  let urlPollInterval = null;
+
   // Send a diagnostic log to the server
   function sendLog(level, source, message) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -100,7 +103,7 @@ import { encodeBinaryFrame, decodeBinaryFrame } from "../shared/binary-frame.js"
     history.replaceState(null, "", targetUrl);
   } catch (_) {}
 
-  // Intercept cross-origin link clicks and sync iframe title to the parent tab
+  // Intercept cross-origin link clicks, sync iframe URL/title to the parent tab
   iframe.onload = () => {
     let doc;
     try {
@@ -131,6 +134,39 @@ import { encodeBinaryFrame, decodeBinaryFrame } from "../shared/binary-frame.js"
     } catch (_) {
       // cross-origin — title sync not available
     }
+
+    // Sync parent URL bar to iframe location on full-page navigations
+    try {
+      const iframeUrl = iframe.contentWindow.location.href;
+      if (iframeUrl && iframeUrl !== location.href) {
+        history.pushState(null, "", iframeUrl);
+      }
+    } catch (_) {}
+
+    // Monkey-patch iframe history to catch SPA pushState / replaceState calls
+    try {
+      const iframeWin = iframe.contentWindow;
+      const origPush = iframeWin.history.pushState.bind(iframeWin.history);
+      const origReplace = iframeWin.history.replaceState.bind(iframeWin.history);
+      function syncUrl() {
+        try {
+          const u = iframeWin.location.href;
+          if (u && u !== location.href) history.replaceState(null, "", u);
+        } catch (_) {}
+      }
+      iframeWin.history.pushState = function(...a) { origPush(...a); syncUrl(); };
+      iframeWin.history.replaceState = function(...a) { origReplace(...a); syncUrl(); };
+      iframeWin.addEventListener("popstate", syncUrl);
+    } catch (_) {}
+
+    // Polling fallback for hashchange / location.assign / meta-refresh (500 ms)
+    if (urlPollInterval) clearInterval(urlPollInterval);
+    urlPollInterval = setInterval(() => {
+      try {
+        const u = iframe.contentWindow.location.href;
+        if (u && u !== location.href) history.replaceState(null, "", u);
+      } catch (_) {}
+    }, 500);
   };
 
   // Slow down / prevent reloads
@@ -156,8 +192,11 @@ import { encodeBinaryFrame, decodeBinaryFrame } from "../shared/binary-frame.js"
   }
   window.addEventListener('keydown', onKeyDown);
 
-  // Handle browser back/forward
+  // Handle browser back/forward — skip if the iframe is already at the target URL
   function onPopState() {
+    try {
+      if (iframe.contentWindow.location.href === location.href) return;
+    } catch (_) {}
     if (iframe) iframe.src = location.href;
   }
   window.addEventListener("popstate", onPopState);
@@ -269,6 +308,12 @@ import { encodeBinaryFrame, decodeBinaryFrame } from "../shared/binary-frame.js"
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
+    }
+
+    // Stop URL polling
+    if (urlPollInterval) {
+      clearInterval(urlPollInterval);
+      urlPollInterval = null;
     }
 
     // Unload all payloads (triggers their destroy() hooks)

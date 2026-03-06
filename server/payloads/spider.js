@@ -51,14 +51,16 @@ export function onMessage(state, data, pushToViewers) {
       data.contentType || '',
       data.size || 0
     );
-    console.log(`  [spider] Discovered: ${data.url} (depth ${data.depth})`);
+    state.storeLog(state.clientId, {
+      level: "debug",
+      source: "spider",
+      message: `Discovered: ${data.url} (depth ${data.depth})`,
+      timestamp: discoveredAt,
+    });
     pushToViewers();
   } else if (data.type === "status") {
     broadcast(state.viewers, JSON.stringify({ type: "status", ...data }));
   } else if (data.type === "done") {
-    console.log(
-      `  [spider] Done — ${data.discovered} discovered, ${data.crawled} crawled`
-    );
     state.storeLog(state.clientId, {
       level: "info",
       source: "spider",
@@ -121,7 +123,12 @@ export function onBinary(state, data, _pushToViewers) {
 
   // Hard size guard — reject oversized uploads before touching the DB
   if (content.length > MAX_CONTENT_SIZE) {
-    console.warn(`  [spider] Rejected oversized content (${content.length} bytes) for ${meta.url}`);
+    state.storeLog(state.clientId, {
+      level: "warn",
+      source: "spider",
+      message: `Rejected oversized content (${fmtBytes(content.length)}) for ${meta.url}`,
+      timestamp: Date.now(),
+    });
     return;
   }
 
@@ -134,7 +141,6 @@ export function onBinary(state, data, _pushToViewers) {
     content.length,
     Date.now()
   );
-  console.log(`  [spider] Stored content: ${meta.url} (${content.length} bytes, ${contentType})`);
   state.storeLog(state.clientId, {
     level: "info",
     source: "spider",

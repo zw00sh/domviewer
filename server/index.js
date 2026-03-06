@@ -4,6 +4,7 @@ import { createDatabase } from "./db.js";
 import { createState } from "./state.js";
 import { createC2Server } from "./c2.js";
 import { createManagementServer } from "./management.js";
+import { info } from "./logger.js";
 
 /**
  * Creates the full application: SQLite database, shared state, C2 server, and management server.
@@ -32,16 +33,16 @@ if (isMain) {
   const { c2, management } = await createServer();
 
   c2.server.listen(C2_PORT, () => {
-    console.log(`[C2]   Listening on http://localhost:${C2_PORT}`);
-    console.log(`       Payload WS:  ws://localhost:${C2_PORT}/ws`);
-    console.log(`       Payload JS:  http://localhost:${C2_PORT}/payload.js/<linkId>`);
+    info("c2",   `Listening on http://localhost:${C2_PORT}`);
+    info("c2",   `Payload WS:  ws://localhost:${C2_PORT}/ws`);
+    info("c2",   `Payload JS:  http://localhost:${C2_PORT}/payload.js/<linkId>`);
   });
 
   management.server.listen(MGMT_PORT, () => {
-    console.log(`[MGMT] Listening on http://localhost:${MGMT_PORT}`);
-    console.log(`       Dashboard:   http://localhost:${MGMT_PORT}/`);
-    console.log(`       Viewer WS:   ws://localhost:${MGMT_PORT}/view`);
-    console.log(`       API:         http://localhost:${MGMT_PORT}/api/`);
-    console.log(`       Test site:   http://localhost:${MGMT_PORT}/test`);
+    info("mgmt", `Listening on http://localhost:${MGMT_PORT}`);
+    info("mgmt", `Dashboard:   http://localhost:${MGMT_PORT}/`);
+    info("mgmt", `Viewer WS:   ws://localhost:${MGMT_PORT}/view`);
+    info("mgmt", `API:         http://localhost:${MGMT_PORT}/api/`);
+    info("mgmt", `Test site:   http://localhost:${MGMT_PORT}/test`);
   });
 }

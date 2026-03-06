@@ -32,8 +32,13 @@ export interface Client {
   config?: Config;
   origin: string;
   ip: string;
-  /** Indicates which DB-backed payloads have historical data. */
-  hasData?: { spider: boolean; keylogger: boolean; cookies: boolean };
+  /** Indicates which DB-backed payloads have historical data and when data was last received. */
+  hasData?: {
+    spider: boolean;
+    keylogger: boolean;
+    cookies: boolean;
+    lastDataAt: { spider: number; keylogger: number; cookies: number };
+  };
 }
 
 export interface SpiderResult {

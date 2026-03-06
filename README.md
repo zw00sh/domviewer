@@ -147,3 +147,4 @@ The compose file mounts a named volume at `/app/data` so the SQLite database sur
 |---|---|---|
 | `C2_PORT` | `3001` | C2 server port |
 | `MGMT_PORT` | `3000` | Management server port |
+| `LOG_LEVEL` | `info` | Minimum log level printed to stdout (`debug`, `info`, `warn`, `error`). All levels are persisted to the DB regardless of this setting. |

@@ -16,7 +16,10 @@ afterEach(() => {
 describe("getClientHasData", () => {
   it("returns all false when no data exists", () => {
     const result = db.getClientHasData("client-1");
-    expect(result).toEqual({ spider: false, keylogger: false, cookies: false });
+    expect(result.spider).toBe(false);
+    expect(result.keylogger).toBe(false);
+    expect(result.cookies).toBe(false);
+    expect(result.lastDataAt).toEqual({ spider: 0, keylogger: 0, cookies: 0 });
   });
 
   it("returns spider: true after a spider result is inserted", () => {
@@ -44,11 +47,17 @@ describe("getClientHasData", () => {
   });
 
   it("returns all true when all tables have data", () => {
-    db.insertSpiderResult("client-1", "https://example.com/", 200, 0, Date.now());
-    db.insertKeyloggerEntry("client-1", "input#user", "text", "input", "a", "a", Date.now());
-    db.insertCookieEntry("client-1", "session", "abc", false, Date.now());
+    const ts = Date.now();
+    db.insertSpiderResult("client-1", "https://example.com/", 200, 0, ts);
+    db.insertKeyloggerEntry("client-1", "input#user", "text", "input", "a", "a", ts);
+    db.insertCookieEntry("client-1", "session", "abc", false, ts);
     const result = db.getClientHasData("client-1");
-    expect(result).toEqual({ spider: true, keylogger: true, cookies: true });
+    expect(result.spider).toBe(true);
+    expect(result.keylogger).toBe(true);
+    expect(result.cookies).toBe(true);
+    expect(result.lastDataAt.spider).toBe(ts);
+    expect(result.lastDataAt.keylogger).toBe(ts);
+    expect(result.lastDataAt.cookies).toBe(ts);
   });
 
   it("is isolated per client — another client's data does not affect results", () => {
