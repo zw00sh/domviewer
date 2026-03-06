@@ -5,6 +5,7 @@ import { useDomViewer } from "@/hooks/use-dom-viewer";
 import { useDisconnectToast } from "@/hooks/use-disconnect-toast";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PayloadStatusBanner } from "@/components/client/PayloadStatusBanner";
+import { OfflineGuardCard } from "@/components/client/OfflineGuardCard";
 import { cn, buildViewerWsUrl } from "@/lib/utils";
 
 interface DomViewerPanelProps {
@@ -62,11 +63,14 @@ export function DomViewerPanel({
   // the client-info message indicated it was already offline. We only show the offline
   // card when no DOM has been received yet (hasData=false), so existing captured DOM
   // stays visible after a disconnect.
-  const showDisabledCard = !payloadEnabled && !hasData;
-  const showOfflineCard = !clientConnected && !hasData && payloadEnabled;
-  const showSpinner = !hasData && !showOfflineCard && !showDisabledCard && status === "open";
+  // Offline + disabled + no data: show OfflineGuardCard (PayloadStatusBanner returns null here)
+  const showOfflineGuard = !clientConnected && !payloadEnabled && !hasData && status !== "connecting";
+  const showDisabledCard = !payloadEnabled && !hasData && !showOfflineGuard;
+  // Guard with status !== "connecting" so we don't flash the offline card before client-info arrives
+  const showOfflineCard = !clientConnected && !hasData && payloadEnabled && status !== "connecting";
+  const showSpinner = !hasData && !showOfflineCard && !showDisabledCard && !showOfflineGuard && status === "open";
 
-  if (showDisabledCard || showOfflineCard) {
+  if (showOfflineGuard || showDisabledCard || showOfflineCard) {
     return (
       <div
         className={cn(
@@ -75,7 +79,9 @@ export function DomViewerPanel({
         )}
         style={className ? undefined : { height: "calc(100vh - 180px)", minHeight: "400px" }}
       >
-        {showDisabledCard ? (
+        {showOfflineGuard ? (
+          <OfflineGuardCard label="Viewer" />
+        ) : showDisabledCard ? (
           <div className="w-full max-w-md">
             <PayloadStatusBanner
               clientId={clientId}

@@ -41,7 +41,9 @@ export function useDomViewer(): UseDomViewerResult {
   );
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [hasData, setHasData] = useState(false);
-  const [clientConnected, setClientConnected] = useState(true);
+  // Initialized to false (unknown) until the first client-info message from the server.
+  // The panel guards showOfflineCard with `status !== "connecting"` to avoid a flash.
+  const [clientConnected, setClientConnected] = useState(false);
   const [payloadEnabled, setPayloadEnabled] = useState(true);
 
   const onMessage = useCallback((event: MessageEvent) => {

@@ -152,7 +152,9 @@ export function useProxy(
   const metaRef = useRef<Meta>({});
   const [version, setVersion] = useState<number>(0);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
-  const [clientConnected, setClientConnected] = useState(true);
+  // Initialized to false (unknown) until the first client-info message from the server.
+  // The panel guards showOfflineCard with `status !== "connecting"` to avoid a flash.
+  const [clientConnected, setClientConnected] = useState(false);
   const [payloadEnabled, setPayloadEnabled] = useState(true);
   /**
    * Tracks whether the last DOM update was a full snapshot.  Set synchronously

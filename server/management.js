@@ -8,6 +8,7 @@ import { WebSocketServer } from "ws";
 import archiver from "archiver";
 import { requireClient, requireLink } from "./middleware.js";
 import { WS_OPEN, broadcast } from "./ws-utils.js";
+import { log } from "./logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -168,7 +169,8 @@ export function createManagementServer(state, opts = {}) {
         // Payload not loaded but DB-backed — create ephemeral state to show historical data
         handlerState = handler.initState(db, clientId, storeLog);
       } else {
-        // Ephemeral payload (domviewer/proxy) not loaded — nothing to show
+        // Ephemeral payload (domviewer/proxy) not loaded — inform viewer then close
+        ws.send(JSON.stringify({ type: "client-info", connected: isLive, payloadEnabled }));
         ws.close();
         return;
       }
@@ -180,6 +182,8 @@ export function createManagementServer(state, opts = {}) {
         // It is NOT added to activeClients and is GC'd when the viewer disconnects.
         handlerState = handler.initState(db, clientId, storeLog);
       } else {
+        // Ephemeral payload disabled for offline client — inform viewer then close
+        ws.send(JSON.stringify({ type: "client-info", connected: isLive, payloadEnabled }));
         ws.close();
         return;
       }
@@ -495,7 +499,7 @@ export function createManagementServer(state, opts = {}) {
 
     const archive = archiver("zip", { zlib: { level: 6 } });
     archive.on("error", (err) => {
-      console.error("[download] archiver error:", err);
+      log("error", "mgmt", `[download] archiver error: ${err.message}`);
       // Headers already sent — just destroy the response stream
       res.destroy();
     });

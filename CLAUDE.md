@@ -126,6 +126,22 @@ Target Browser          C2 Server (:3001)        Management Server (:3000)
 ### Binary frame format
 `[1 byte: name length N][N bytes: payload name UTF-8][rest: binary data]`
 
+### Viewer WS protocol (management server → dashboard)
+
+The management server's `/view` WebSocket is used by the React SPA to receive live payload data. Query params: `?clientId=<id>&payload=<name>`.
+
+1. Server resolves handler state: active client's live state (if connected), or ephemeral state for DB-backed/previously-enabled payloads.
+2. If no state can be provided (ephemeral payload disabled for an offline client, or not loaded on a live client), the server **MUST send `client-info` before closing** so the frontend knows the real `payloadEnabled` value.
+3. Otherwise the server sends `{ type: "client-info", connected: bool, payloadEnabled: bool }` as the **first message**, before delegating to the handler's `onViewerConnect`.
+4. The handler then sends its initial data (snapshot, historical entries, etc.).
+5. Live updates (deltas, new entries, `disconnected`) follow as the session progresses.
+
+**Frontend hook initialization contract:**
+- `clientConnected` **MUST** be initialized to `false` (unknown), never `true`. The authoritative value comes from `client-info`. Initializing to `true` creates a false `true→false` transition that triggers spurious disconnect toasts when the server reports an already-offline client.
+- `payloadEnabled` **MUST** be initialized to `true` (optimistic). The authoritative value comes from `client-info`.
+- Panel UI guards (offline card, disabled card) **MUST** suppress rendering while `status === "connecting"` to avoid flashing before `client-info` arrives.
+- Toast hooks should skip the first `clientConnected` change (the initial value from mount) and only fire on subsequent live transitions to `false`.
+
 ### Live payload updates
 - `PATCH /api/links/:id` on management → updates DB template only (new clients inherit changes; does NOT push to connected clients)
 - `PATCH /api/clients/:id` on management → updates client payloads + config and live-pushes `load`/`unload`/`config` to connected client

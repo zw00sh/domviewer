@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PayloadStatusBanner } from "@/components/client/PayloadStatusBanner";
+import { OfflineGuardCard } from "@/components/client/OfflineGuardCard";
 import { cn, buildViewerWsUrl } from "@/lib/utils";
 
 interface ProxyPanelProps {
@@ -560,9 +561,12 @@ export function ProxyPanel({ clientId, className, onStatusChange }: ProxyPanelPr
     if (e.key === "Enter") handleNavigate();
   }
 
-  const showDisabledCard = !payloadEnabled && version === 0;
-  const showOfflineCard = !clientConnected && version === 0 && payloadEnabled;
-  const showSpinner = version === 0 && !showOfflineCard && !showDisabledCard && status === "open";
+  // Offline + disabled + no data: show OfflineGuardCard (PayloadStatusBanner returns null here)
+  const showOfflineGuard = !clientConnected && !payloadEnabled && version === 0 && status !== "connecting";
+  const showDisabledCard = !payloadEnabled && version === 0 && !showOfflineGuard;
+  // Guard with status !== "connecting" so we don't flash the offline card before client-info arrives
+  const showOfflineCard = !clientConnected && version === 0 && payloadEnabled && status !== "connecting";
+  const showSpinner = version === 0 && !showOfflineCard && !showDisabledCard && !showOfflineGuard && status === "open";
 
   return (
     <div className={cn("flex flex-col", className)}>
@@ -583,9 +587,11 @@ export function ProxyPanel({ clientId, className, onStatusChange }: ProxyPanelPr
       {/* ── Viewport ─────────────────────────────────────────────────── */}
       {/* Events are captured directly on iframe.contentDocument (no overlay) */}
       <div className="flex-1 min-h-0 w-full overflow-hidden bg-white relative">
-        {(showOfflineCard || showDisabledCard) && (
+        {(showOfflineGuard || showOfflineCard || showDisabledCard) && (
           <div className="absolute inset-0 flex items-center justify-center bg-background z-10 p-8">
-            {showDisabledCard ? (
+            {showOfflineGuard ? (
+              <OfflineGuardCard label="Remote Control" />
+            ) : showDisabledCard ? (
               <div className="w-full max-w-md">
                 <PayloadStatusBanner
                   clientId={clientId}
