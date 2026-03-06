@@ -25,3 +25,31 @@ export function buildLogViewerWsUrl(): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/view?payload=logs`;
 }
+
+/**
+ * Format a Unix timestamp in milliseconds as a human-readable time string.
+ */
+export function formatTimestamp(ts: number): string {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+/**
+ * Trigger a browser download of the given data as a JSON file.
+ * @param data - Any JSON-serialisable value.
+ * @param filename - Suggested filename (should end in .json).
+ */
+export function exportJson(data: unknown, filename: string): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

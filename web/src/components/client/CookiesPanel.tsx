@@ -1,7 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
-import { toast } from "sonner";
 import { useCookies } from "@/hooks/use-cookies";
 import type { CookieEntry } from "@/hooks/use-cookies";
+import { PayloadStatusBanner } from "@/components/client/PayloadStatusBanner";
+import { OfflineGuardCard } from "@/components/client/OfflineGuardCard";
+import { useDisconnectToast } from "@/hooks/use-disconnect-toast";
+import { formatTimestamp, exportJson } from "@/lib/utils";
+import { getPayloadLabel } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,14 +28,6 @@ interface CookiesPanelProps {
   onStatusChange?: (status: "connecting" | "open" | "closed") => void;
 }
 
-function formatTimestamp(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
 /**
  * Displays captured cookie entries with "current" (deduplicated) and "history" views.
  *
@@ -39,18 +35,14 @@ function formatTimestamp(ts: number): string {
  * History view — shows all cookie change events in chronological order.
  */
 export function CookiesPanel({ clientId, onStatusChange }: CookiesPanelProps) {
-  const { cookies, status, clientConnected, clearCookies } = useCookies(clientId);
+  const { cookies, status, clientConnected, payloadEnabled, clearCookies } = useCookies(clientId);
   const [viewMode, setViewMode] = useState<"current" | "history">("current");
+
+  useDisconnectToast(clientConnected);
 
   useEffect(() => {
     onStatusChange?.(status);
   }, [status, onStatusChange]);
-
-  useEffect(() => {
-    if (!clientConnected) {
-      toast("Client disconnected from C2");
-    }
-  }, [clientConnected]);
 
   /**
    * Build a last-write-wins Map of name → CookieEntry for the "Current" view.
@@ -64,23 +56,27 @@ export function CookiesPanel({ clientId, onStatusChange }: CookiesPanelProps) {
     return Array.from(map.values()).filter((e) => !e.removed);
   }, [cookies]);
 
-  function exportJson() {
+  function handleExportJson() {
     const data = viewMode === "current" ? currentCookies : cookies;
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `cookies-${clientId.slice(0, 8)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportJson(data, `cookies-${clientId.slice(0, 8)}.json`);
   }
 
   const isEmpty = viewMode === "current" ? currentCookies.length === 0 : cookies.length === 0;
+  const hasLocalData = cookies.length > 0;
+
+  if (!clientConnected && !payloadEnabled && !hasLocalData) {
+    return <OfflineGuardCard label={getPayloadLabel("cookies")} />;
+  }
 
   return (
     <div className="space-y-4">
+      <PayloadStatusBanner
+        clientId={clientId}
+        payloadKey="cookies"
+        clientConnected={clientConnected}
+        payloadEnabled={payloadEnabled}
+        hasData={hasLocalData}
+      />
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1.5">
@@ -123,7 +119,7 @@ export function CookiesPanel({ clientId, onStatusChange }: CookiesPanelProps) {
             <Button
               size="sm"
               variant="outline"
-              onClick={exportJson}
+              onClick={handleExportJson}
               disabled={isEmpty}
             >
               <Download className="h-3.5 w-3.5" />
@@ -139,7 +135,7 @@ export function CookiesPanel({ clientId, onStatusChange }: CookiesPanelProps) {
               variant="outline"
               className="text-destructive hover:text-destructive"
               onClick={clearCookies}
-              disabled={cookies.length === 0}
+              disabled={cookies.length === 0 || !clientConnected}
               data-testid="cookies-clear-btn"
             >
               <Trash2 className="h-3.5 w-3.5" />

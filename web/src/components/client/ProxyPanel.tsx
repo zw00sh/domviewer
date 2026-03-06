@@ -1,15 +1,14 @@
 import { useEffect, useRef, useMemo, useCallback, useState } from "react";
 import morphdom from "morphdom";
-import { toast } from "sonner";
 import { Loader2, WifiOff } from "lucide-react";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useProxy } from "@/hooks/use-proxy";
-import { usePolling } from "@/hooks/use-polling";
+import { useDisconnectToast } from "@/hooks/use-disconnect-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PayloadStatusBanner } from "@/components/client/PayloadStatusBanner";
 import { cn, buildViewerWsUrl } from "@/lib/utils";
-import type { Client } from "@/types/api";
 
 interface ProxyPanelProps {
   clientId: string;
@@ -64,12 +63,9 @@ export function ProxyPanel({ clientId, className, onStatusChange }: ProxyPanelPr
   const wsUrl = useMemo(() => buildViewerWsUrl(clientId, "proxy"), [clientId]);
 
   // Pass focusedNidRef so the hook can update it when focus-sync arrives (Phase 5)
-  const { version, renderHtml, proxyUrl, clientConnected, onMessage, lastWasSnapshot } =
+  const { version, renderHtml, proxyUrl, clientConnected, payloadEnabled, onMessage, lastWasSnapshot } =
     useProxy(iframeRef, focusedNidRef);
   const { send, status } = useWebSocket(wsUrl, { onMessage });
-
-  // Poll for client online/offline state to detect pre-existing offline condition
-  const { data: client } = usePolling<Client>(`/api/clients/${clientId}`, 10000);
 
   useEffect(() => {
     onStatusChange?.(status);
@@ -103,12 +99,7 @@ export function ProxyPanel({ clientId, className, onStatusChange }: ProxyPanelPr
     };
   }, []);
 
-  // Toast when the client disconnects while we're viewing
-  useEffect(() => {
-    if (!clientConnected) {
-      toast("Client disconnected from C2");
-    }
-  }, [clientConnected]);
+  useDisconnectToast(clientConnected);
 
   // ─── Main rendering effect ─────────────────────────────────────────────────
   //
@@ -569,9 +560,9 @@ export function ProxyPanel({ clientId, className, onStatusChange }: ProxyPanelPr
     if (e.key === "Enter") handleNavigate();
   }
 
-  const isClientOffline = !clientConnected || client?.connected === false;
-  const showOfflineCard = isClientOffline && version === 0;
-  const showSpinner = version === 0 && !showOfflineCard && status === "open";
+  const showDisabledCard = !payloadEnabled && version === 0;
+  const showOfflineCard = !clientConnected && version === 0 && payloadEnabled;
+  const showSpinner = version === 0 && !showOfflineCard && !showDisabledCard && status === "open";
 
   return (
     <div className={cn("flex flex-col", className)}>
@@ -592,17 +583,28 @@ export function ProxyPanel({ clientId, className, onStatusChange }: ProxyPanelPr
       {/* ── Viewport ─────────────────────────────────────────────────── */}
       {/* Events are captured directly on iframe.contentDocument (no overlay) */}
       <div className="flex-1 min-h-0 w-full overflow-hidden bg-white relative">
-        {showOfflineCard && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
-            <Card className="w-80 text-center">
-              <CardHeader className="items-center gap-2">
-                <WifiOff className="h-8 w-8 text-muted-foreground" />
-                <CardTitle>Client offline</CardTitle>
-                <CardDescription>
-                  This client is not connected. The DOM will appear here when the client reconnects.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+        {(showOfflineCard || showDisabledCard) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background z-10 p-8">
+            {showDisabledCard ? (
+              <div className="w-full max-w-md">
+                <PayloadStatusBanner
+                  clientId={clientId}
+                  payloadKey="proxy"
+                  clientConnected={clientConnected}
+                  payloadEnabled={payloadEnabled}
+                />
+              </div>
+            ) : (
+              <Card className="w-80 text-center">
+                <CardHeader className="items-center gap-2">
+                  <WifiOff className="h-8 w-8 text-muted-foreground" />
+                  <CardTitle>Client offline</CardTitle>
+                  <CardDescription>
+                    This client is not connected. The DOM will appear here when the client reconnects.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            )}
           </div>
         )}
         {showSpinner && (

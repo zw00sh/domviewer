@@ -105,7 +105,7 @@ export default function Dashboard() {
           <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
             New Link
           </Button>
-          <RouterLink to="/logs" className="text-sm text-blue-600 hover:underline">
+          <RouterLink to="/logs" className="text-sm text-primary hover:underline">
             Global Logs
           </RouterLink>
         </div>

@@ -14,6 +14,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { DeleteClientDialog } from "@/components/client/DeleteClientDialog";
+import { ToolNav } from "@/components/layout/ToolNav";
 import { TOOLS } from "@/lib/constants";
 import type { Client } from "@/types/api";
 
@@ -134,32 +135,11 @@ export function ClientsTable({ clients, onUpdated }: Props) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {TOOLS.map(({ key, icon: Icon, title, route, isPayload }) => {
-                          const isActive =
-                            !isPayload || client.payloads.includes(key);
-                          return isActive ? (
-                            <Tooltip key={key}>
-                              <TooltipTrigger asChild>
-                                <Link
-                                  to={route(client.id)}
-                                  className="p-1 rounded hover:bg-accent"
-                                >
-                                  <Icon className="h-4 w-4" />
-                                </Link>
-                              </TooltipTrigger>
-                              <TooltipContent>{title}</TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <Tooltip key={key}>
-                              <TooltipTrigger asChild>
-                                <span className="p-1 opacity-25 cursor-default">
-                                  <Icon className="h-4 w-4" />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>{title}</TooltipContent>
-                            </Tooltip>
-                          );
-                        })}
+                        <ToolNav
+                          clientId={client.id}
+                          payloads={client.payloads}
+                          hasData={client.hasData}
+                        />
                       </div>
                     </TableCell>
                     <TableCell>

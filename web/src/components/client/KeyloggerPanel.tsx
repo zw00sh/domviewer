@@ -1,7 +1,11 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { toast } from "sonner";
 import { useKeylogger } from "@/hooks/use-keylogger";
 import type { KeyloggerEntry } from "@/hooks/use-keylogger";
+import { PayloadStatusBanner } from "@/components/client/PayloadStatusBanner";
+import { OfflineGuardCard } from "@/components/client/OfflineGuardCard";
+import { useDisconnectToast } from "@/hooks/use-disconnect-toast";
+import { formatTimestamp, exportJson } from "@/lib/utils";
+import { getPayloadLabel } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -40,14 +44,6 @@ interface InteractionSession {
   entries: KeyloggerEntry[];
   startTime: number;
   endTime: number;
-}
-
-function formatTimestamp(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
 }
 
 /** Coloured badge for the element type. */
@@ -123,20 +119,16 @@ export function KeyloggerPanel({
   clientId,
   onStatusChange,
 }: KeyloggerPanelProps) {
-  const { entries, status, clientConnected, clearEntries } = useKeylogger(clientId);
+  const { entries, status, clientConnected, payloadEnabled, clearEntries } = useKeylogger(clientId);
   const [viewMode, setViewMode] = useState<"grouped" | "stream">("grouped");
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [activeTypeFilters, setActiveTypeFilters] = useState<Set<string>>(new Set());
 
+  useDisconnectToast(clientConnected);
+
   useEffect(() => {
     onStatusChange?.(status);
   }, [status, onStatusChange]);
-
-  useEffect(() => {
-    if (!clientConnected) {
-      toast("Client disconnected from C2");
-    }
-  }, [clientConnected]);
 
   /** Split entries into contiguous interaction sessions (O(n) single pass). */
   const sessions = useMemo<InteractionSession[]>(() => {
@@ -184,16 +176,8 @@ export function KeyloggerPanel({
     });
   }
 
-  function exportJson() {
-    const blob = new Blob([JSON.stringify(entries, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `keylogger-${clientId.slice(0, 8)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  function handleExportJson() {
+    exportJson(entries, `keylogger-${clientId.slice(0, 8)}.json`);
   }
 
   function toggleExpand(sessionKey: string) {
@@ -213,8 +197,21 @@ export function KeyloggerPanel({
     return "";
   }
 
+  const hasLocalData = entries.length > 0;
+
+  if (!clientConnected && !payloadEnabled && !hasLocalData) {
+    return <OfflineGuardCard label={getPayloadLabel("keylogger")} />;
+  }
+
   return (
     <div className="space-y-4">
+      <PayloadStatusBanner
+        clientId={clientId}
+        payloadKey="keylogger"
+        clientConnected={clientConnected}
+        payloadEnabled={payloadEnabled}
+        hasData={hasLocalData}
+      />
         {/* Toolbar */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
@@ -257,7 +254,7 @@ export function KeyloggerPanel({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={exportJson}
+                onClick={handleExportJson}
                 disabled={entries.length === 0}
               >
                 <Download className="h-3.5 w-3.5" />
@@ -273,7 +270,7 @@ export function KeyloggerPanel({
                 variant="outline"
                 className="text-destructive hover:text-destructive"
                 onClick={clearEntries}
-                disabled={entries.length === 0}
+                disabled={entries.length === 0 || !clientConnected}
                 data-testid="keylogger-clear-btn"
               >
                 <Trash2 className="h-3.5 w-3.5" />

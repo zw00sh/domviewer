@@ -283,12 +283,12 @@ function TreeNodeRow({
               // Cog icon for parameterised endpoint groups (query-string children)
               <Settings className="h-4 w-4 text-violet-400/80" />
             ) : isExpanded ? (
-              <FolderOpen className="h-4 w-4 text-amber-500" />
+              <FolderOpen className="h-4 w-4 text-amber-600 dark:text-amber-500" />
             ) : (
-              <Folder className="h-4 w-4 text-amber-500" />
+              <Folder className="h-4 w-4 text-amber-600 dark:text-amber-500" />
             )
           ) : (
-            <File className="h-4 w-4 text-blue-400" />
+            <File className="h-4 w-4 text-blue-500 dark:text-blue-400" />
           )}
         </span>
 
@@ -397,7 +397,7 @@ function TreeNodeRow({
             className="p-1 rounded hover:bg-accent"
           >
             {copiedUrl === url ? (
-              <span className="text-green-500 text-xs leading-none">✓</span>
+              <span className="text-green-600 dark:text-green-500 text-xs leading-none">✓</span>
             ) : (
               <Copy className="h-3 w-3 text-muted-foreground" />
             )}
@@ -421,7 +421,7 @@ function TreeNodeRow({
               className="shrink-0 p-0.5 rounded hover:bg-accent"
             >
               {copiedUrl === node.result.url ? (
-                <span className="text-green-500 text-xs leading-none">✓</span>
+                <span className="text-green-600 dark:text-green-500 text-xs leading-none">✓</span>
               ) : (
                 <Copy className="h-3 w-3 text-muted-foreground" />
               )}

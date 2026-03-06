@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { TopBar } from "@/components/layout/TopBar";
+import { PayloadPageLayout } from "@/components/layout/PayloadPageLayout";
 import { DomViewerPanel } from "@/components/client/DomViewerPanel";
-import { PayloadPageGuard } from "@/components/client/PayloadPageGuard";
 
 export default function DomViewer() {
   const { id } = useParams<{ id: string }>();
@@ -11,17 +10,12 @@ export default function DomViewer() {
   if (!id) return null;
 
   return (
-    <div className="h-screen flex flex-col">
-      <TopBar clientId={id} currentUrl={currentUrl ?? undefined} />
-      <PayloadPageGuard clientId={id} payloadKey="domviewer">
-        <div className="flex-1">
-          <DomViewerPanel
-            clientId={id}
-            className="h-full w-full border-none rounded-none"
-            onUrlChange={setCurrentUrl}
-          />
-        </div>
-      </PayloadPageGuard>
-    </div>
+    <PayloadPageLayout layout="full" currentUrl={currentUrl ?? undefined}>
+      <DomViewerPanel
+        clientId={id}
+        className="h-full w-full border-none rounded-none"
+        onUrlChange={setCurrentUrl}
+      />
+    </PayloadPageLayout>
   );
 }

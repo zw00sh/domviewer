@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { WifiOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -151,6 +152,12 @@ export function EditClientDialog({
           <p className="text-xs text-muted-foreground mt-1">
             Toggle payloads and configure settings, then click Apply to save.
           </p>
+          {client && !client.connected && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground bg-muted rounded-md px-3 py-2 mt-2">
+              <WifiOff className="h-3.5 w-3.5 shrink-0" />
+              Client is offline. Changes will apply when it reconnects.
+            </p>
+          )}
         </DialogHeader>
 
         {client && (

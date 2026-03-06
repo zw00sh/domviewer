@@ -2,12 +2,12 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { LogEntry } from "@/types/api";
 
-/** Maps log level to a terminal-style colour class. */
+/** Maps log level to a terminal-style colour class (light and dark mode aware). */
 const levelColor: Record<string, string> = {
   debug: "text-zinc-500",
-  info: "text-blue-400",
-  warn: "text-yellow-400",
-  error: "text-red-400",
+  info: "text-blue-600 dark:text-blue-400",
+  warn: "text-yellow-600 dark:text-yellow-400",
+  error: "text-red-600 dark:text-red-400",
 };
 
 interface LogsTableProps {

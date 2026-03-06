@@ -1,11 +1,13 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { toast } from "sonner";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { buildViewerWsUrl } from "@/lib/utils";
-import { DEFAULT_SPIDER_CONFIG } from "@/lib/constants";
+import { DEFAULT_SPIDER_CONFIG, getPayloadLabel } from "@/lib/constants";
 import { StatsBox } from "@/components/spider/StatsBox";
 import { SpiderTree } from "@/components/spider/SpiderTree";
 import { ExfiltrationDialog } from "@/components/spider/ExfiltrationDialog";
+import { PayloadStatusBanner } from "@/components/client/PayloadStatusBanner";
+import { OfflineGuardCard } from "@/components/client/OfflineGuardCard";
+import { useDisconnectToast } from "@/hooks/use-disconnect-toast";
 import { buildUrlTree } from "@/lib/url-tree";
 import type { SpiderResult, SpiderConfig } from "@/types/api";
 
@@ -32,6 +34,8 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
   const [savingConfig, setSavingConfig] = useState(false);
   /** State for the exfiltration dialog (null = closed). */
   const [exfilDialog, setExfilDialog] = useState<{ urls: string[]; downloadHref: string; skipConfirm?: boolean } | null>(null);
+  const [clientConnected, setClientConnected] = useState(true);
+  const [payloadEnabled, setPayloadEnabled] = useState(true);
 
   // Fetch client config on mount
   useEffect(() => {
@@ -53,6 +57,11 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
     try {
       msg = JSON.parse(event.data as string);
     } catch {
+      return;
+    }
+    if (msg.type === "client-info") {
+      setClientConnected(msg.connected as boolean);
+      setPayloadEnabled(msg.payloadEnabled as boolean);
       return;
     }
     if (msg.type === "init" || msg.type === "results") {
@@ -105,11 +114,13 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
         });
       }
     } else if (msg.type === "disconnected") {
-      toast("Client disconnected from C2");
+      setClientConnected(false);
     }
   }, []);
 
   const { status } = useWebSocket(wsUrl, { onMessage });
+
+  useDisconnectToast(clientConnected);
 
   useEffect(() => {
     onStatusChange?.(status);
@@ -197,8 +208,25 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
 
   const tree = useMemo(() => buildUrlTree(results), [results]);
 
+  /** Whether the client can act (crawl/exfiltrate) — must be live and payload loaded. */
+  const canAct = clientConnected && payloadEnabled;
+
+  const hasLocalData = results.length > 0;
+
+  // Offline + disabled + no data — nothing to show
+  if (!clientConnected && !payloadEnabled && !hasLocalData) {
+    return <OfflineGuardCard label={getPayloadLabel("spider")} />;
+  }
+
   return (
     <div className="space-y-4">
+      <PayloadStatusBanner
+        clientId={clientId}
+        payloadKey="spider"
+        clientConnected={clientConnected}
+        payloadEnabled={payloadEnabled}
+        hasData={hasLocalData}
+      />
       {/* Config toggles */}
       {configLoaded && (
         <div className="border rounded-md p-3 space-y-2 text-sm">
@@ -244,7 +272,7 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
         onRequestDownload={handleRequestDownload}
         onExfiltrateWithProgress={handleExfiltrateWithProgress}
         clientId={clientId}
-        connected={status === "open"}
+        connected={canAct}
       />
       {exfilDialog && (
         <ExfiltrationDialog
@@ -255,7 +283,7 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
           pendingExfiltrations={pendingExfiltrations}
           downloadHref={exfilDialog.downloadHref}
           onExfiltrate={handleExfiltrate}
-          connected={status === "open"}
+          connected={canAct}
           skipConfirm={exfilDialog.skipConfirm}
         />
       )}

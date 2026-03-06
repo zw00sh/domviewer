@@ -177,10 +177,10 @@ export function ExfiltrationDialog({
                       return (
                         <div key={url} className="flex items-start gap-2">
                           {status === "done" && (
-                            <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                            <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
                           )}
                           {status === "fetching" && (
-                            <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin shrink-0 mt-0.5" />
+                            <Loader2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-500 animate-spin shrink-0 mt-0.5" />
                           )}
                           {status === "pending" && (
                             <AlertCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />

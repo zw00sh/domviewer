@@ -1,12 +1,11 @@
 import { useEffect, useRef, useMemo } from "react";
-import { toast } from "sonner";
 import { Loader2, WifiOff } from "lucide-react";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useDomViewer } from "@/hooks/use-dom-viewer";
-import { usePolling } from "@/hooks/use-polling";
+import { useDisconnectToast } from "@/hooks/use-disconnect-toast";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PayloadStatusBanner } from "@/components/client/PayloadStatusBanner";
 import { cn, buildViewerWsUrl } from "@/lib/utils";
-import type { Client } from "@/types/api";
 
 interface DomViewerPanelProps {
   clientId: string;
@@ -37,11 +36,8 @@ export function DomViewerPanel({
 
   const wsUrl = useMemo(() => buildViewerWsUrl(clientId, "domviewer"), [clientId]);
 
-  const { html, baseUrl, hasData, clientConnected, onMessage } = useDomViewer();
+  const { html, baseUrl, hasData, clientConnected, payloadEnabled, onMessage } = useDomViewer();
   const { status } = useWebSocket(wsUrl, { onMessage });
-
-  // Poll for client online/offline state to detect pre-existing offline condition
-  const { data: client } = usePolling<Client>(`/api/clients/${clientId}`, 10000);
 
   useEffect(() => {
     onStatusChange?.(status);
@@ -51,12 +47,7 @@ export function DomViewerPanel({
     onUrlChange?.(baseUrl);
   }, [baseUrl, onUrlChange]);
 
-  // Toast when the client disconnects while we're viewing
-  useEffect(() => {
-    if (!clientConnected) {
-      toast("Client disconnected from C2");
-    }
-  }, [clientConnected]);
+  useDisconnectToast(clientConnected);
 
   useEffect(() => {
     if (!html || !iframeRef.current) return;
@@ -67,32 +58,43 @@ export function DomViewerPanel({
     doc.close();
   }, [html]);
 
-  // The client is considered offline if: polled client.connected is false OR
-  // we received a "disconnected" WS message (clientConnected=false). We only
-  // show the offline card when no DOM has been received yet (hasData=false),
-  // so existing captured DOM stays visible after a disconnect.
-  const isClientOffline = !clientConnected || client?.connected === false;
-  const showOfflineCard = isClientOffline && !hasData;
-  const showSpinner = !hasData && !showOfflineCard && status === "open";
+  // The client is considered offline if we received a "disconnected" WS message or
+  // the client-info message indicated it was already offline. We only show the offline
+  // card when no DOM has been received yet (hasData=false), so existing captured DOM
+  // stays visible after a disconnect.
+  const showDisabledCard = !payloadEnabled && !hasData;
+  const showOfflineCard = !clientConnected && !hasData && payloadEnabled;
+  const showSpinner = !hasData && !showOfflineCard && !showDisabledCard && status === "open";
 
-  if (showOfflineCard) {
+  if (showDisabledCard || showOfflineCard) {
     return (
       <div
         className={cn(
-          "flex items-center justify-center",
+          "flex items-center justify-center p-8",
           className
         )}
         style={className ? undefined : { height: "calc(100vh - 180px)", minHeight: "400px" }}
       >
-        <Card className="w-80 text-center">
-          <CardHeader className="items-center gap-2">
-            <WifiOff className="h-8 w-8 text-muted-foreground" />
-            <CardTitle>Client offline</CardTitle>
-            <CardDescription>
-              This client is not connected. The DOM will appear here when the client reconnects.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        {showDisabledCard ? (
+          <div className="w-full max-w-md">
+            <PayloadStatusBanner
+              clientId={clientId}
+              payloadKey="domviewer"
+              clientConnected={clientConnected}
+              payloadEnabled={payloadEnabled}
+            />
+          </div>
+        ) : (
+          <Card className="w-80 text-center">
+            <CardHeader className="items-center gap-2">
+              <WifiOff className="h-8 w-8 text-muted-foreground" />
+              <CardTitle>Client offline</CardTitle>
+              <CardDescription>
+                This client is not connected. The DOM will appear here when the client reconnects.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
       </div>
     );
   }

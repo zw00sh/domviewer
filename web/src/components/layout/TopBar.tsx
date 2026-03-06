@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { usePolling } from "@/hooks/use-polling";
-import { TOOLS } from "@/lib/constants";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { DeleteClientDialog } from "@/components/client/DeleteClientDialog";
+import { ToolNav } from "@/components/layout/ToolNav";
 import type { Client } from "@/types/api";
 
 interface TopBarProps {
@@ -126,38 +126,12 @@ function ClientTopBar({
         {/* Tool nav + action buttons — shown once client data has loaded */}
         {client && (
           <div className="ml-auto flex items-center gap-1">
-            {TOOLS.map(({ key, icon: Icon, title, route, isPayload }) => {
-              const isActive = location.pathname === route(clientId);
-              const isEnabled = !isPayload || client.payloads.includes(key);
-              return isEnabled ? (
-                <Tooltip key={key}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to={route(clientId)}
-                      className={cn(
-                        "p-1 rounded hover:bg-accent",
-                        isActive && "bg-accent"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>{title}</TooltipContent>
-                </Tooltip>
-              ) : (
-                <Tooltip key={key}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to={route(clientId)}
-                      className="p-1 rounded opacity-30 hover:opacity-60 transition-opacity"
-                    >
-                      <Icon className="h-4 w-4" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>{title} (not enabled)</TooltipContent>
-                </Tooltip>
-              );
-            })}
+            <ToolNav
+              clientId={clientId}
+              payloads={client.payloads}
+              hasData={client.hasData}
+              activePath={location.pathname}
+            />
 
             <div className="w-px h-4 bg-border mx-1" />
 

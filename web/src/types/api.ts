@@ -32,6 +32,8 @@ export interface Client {
   config?: Config;
   origin: string;
   ip: string;
+  /** Indicates which DB-backed payloads have historical data. */
+  hasData?: { spider: boolean; keylogger: boolean; cookies: boolean };
 }
 
 export interface SpiderResult {
