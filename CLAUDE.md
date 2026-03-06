@@ -195,8 +195,9 @@ To use:
 5. Wherever possible, use ShadCN components in place of custom building components
 5. Wherever possible, use ShadCN components in place of custom building components
 6. This repo is not yet at a release state. When adding or modifying features, don't worry about backwards-compatibility. If it is cleaner to remove or refactor old code, go for it.
-7. After every set of changes, verify the Docker image builds successfully: `docker build -t domviewer .` 
+7. After every set of changes, verify the Docker image builds successfully: `docker build -t domviewer .`
 8. Never suggest manual verification. Always test UI changes in the browser (see below), ensuring modified elements have the correct layout. Include instructions to do so in your plans.
+9. **Use Docker for running the server during browser testing** — never use `npm start` or `node server/index.js` directly. Build and run via `docker build -t domviewer . && docker run --rm -d --name domviewer-test -p 3000:3000 -p 3001:3001 domviewer`. Stop with `docker stop domviewer-test`. This ensures tests run against the same artefacts as production.
 
 # Browser Testing
 
@@ -325,11 +326,23 @@ manual approval, which defeats the purpose of agentic testing.
 
 ### Starting a session
 
+Before browser testing, start the server via Docker (see Instructions item 9):
+```bash
+docker build -t domviewer .
+```
+```bash
+docker run --rm -d --name domviewer-test -p 3000:3000 -p 3001:3001 domviewer
+```
+
+Then open the browser:
 ```bash
 playwright-cli open http://localhost:3000 --headed
 ```
 
-For localhost testing, detect running dev servers first before hardcoding a port.
+When done, stop the container:
+```bash
+docker stop domviewer-test
+```
 
 ### Simple interactions
 

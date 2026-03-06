@@ -125,6 +125,7 @@ export function createC2Server(state) {
         for (const name of clientPayloads) {
           state.loadPayloadOnClient(clientId, name, clientConfig[name] || {}, { isReconnect });
         }
+        state.events.emit("client-connected", clientId);
       } else if (msg.type === "loaded") {
         console.log(
           `  Client ${clientId?.slice(0, 8)} loaded payload: ${msg.name}`
@@ -175,6 +176,7 @@ export function createC2Server(state) {
           timestamp: Date.now(),
         });
         activeClients.delete(clientId);
+        state.events.emit("client-disconnected", clientId);
         console.log(`Client ${clientId.slice(0, 8)} disconnected`);
       }
     });

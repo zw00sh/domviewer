@@ -4,11 +4,10 @@ import { Pencil, Trash2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { usePolling } from "@/hooks/use-polling";
+import { useClientStatus } from "@/hooks/use-client-status";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { DeleteClientDialog } from "@/components/client/DeleteClientDialog";
 import { ToolNav } from "@/components/layout/ToolNav";
-import type { Client } from "@/types/api";
 
 interface TopBarProps {
   clientId?: string;
@@ -56,10 +55,7 @@ function ClientTopBar({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { data: client, refetch } = usePolling<Client>(
-    `/api/clients/${clientId}`,
-    10000
-  );
+  const { client, refetch } = useClientStatus(clientId);
 
   function copyId() {
     navigator.clipboard.writeText(clientId).then(() => {

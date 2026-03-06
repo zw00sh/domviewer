@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { toast } from "sonner";
-import { usePolling } from "@/hooks/use-polling";
+import { useDashboard } from "@/hooks/use-dashboard";
 import { CreateLinkForm } from "@/components/dashboard/CreateLinkForm";
 import { LinksTable } from "@/components/dashboard/LinksTable";
 import { ClientsTable } from "@/components/dashboard/ClientsTable";
@@ -24,6 +23,9 @@ function Spinner() {
   );
 }
 
+// Re-export types to satisfy TypeScript (imported but referenced by child components)
+export type { Link, Client };
+
 export default function Dashboard() {
   const [c2Url, setC2Url] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -35,67 +37,7 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
-  const {
-    data: links,
-    error: linksError,
-    loading: linksLoading,
-    refetch: refetchLinks,
-  } = usePolling<Link[]>("/api/links", 5000);
-
-  const {
-    data: clients,
-    error: clientsError,
-    loading: clientsLoading,
-    refetch: refetchClients,
-  } = usePolling<Client[]>("/api/clients", 5000);
-
-  // Show error toasts when polling errors occur
-  useEffect(() => {
-    if (linksError) toast.error("Failed to load links", { description: linksError });
-  }, [linksError]);
-
-  useEffect(() => {
-    if (clientsError) toast.error("Failed to load clients", { description: clientsError });
-  }, [clientsError]);
-
-  /**
-   * Track the previous client snapshot to diff for connect/disconnect events.
-   * Use a ref so we don't trigger re-renders. `null` means "first poll — skip".
-   */
-  const prevClientsRef = useRef<Map<string, boolean> | null>(null);
-
-  useEffect(() => {
-    if (!clients) return;
-
-    const current = new Map(clients.map((c) => [c.id, c.connected]));
-    const prev = prevClientsRef.current;
-
-    if (prev === null) {
-      // First poll — just capture the snapshot, no toasts
-      prevClientsRef.current = current;
-      return;
-    }
-
-    for (const [id, connected] of current) {
-      const origin = clients.find((c) => c.id === id)?.origin ?? "";
-      const label = `${id.slice(0, 8)}… ${origin ? `from ${origin}` : ""}`.trim();
-
-      if (!prev.has(id)) {
-        toast("Client connected", { description: label });
-      } else if (!prev.get(id) && connected) {
-        toast("Client reconnected", { description: label });
-      } else if (prev.get(id) && !connected) {
-        toast("Client disconnected", { description: label });
-      }
-    }
-
-    prevClientsRef.current = current;
-  }, [clients]);
-
-  function refetchAll() {
-    refetchLinks();
-    refetchClients();
-  }
+  const { links, clients, loading, refetch } = useDashboard();
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
@@ -117,7 +59,7 @@ export default function Dashboard() {
             <DialogTitle>Create Payload Link</DialogTitle>
           </DialogHeader>
           <CreateLinkForm
-            onCreated={refetchAll}
+            onCreated={refetch}
             onClose={() => setCreateDialogOpen(false)}
             c2Url={c2Url ?? undefined}
           />
@@ -126,14 +68,14 @@ export default function Dashboard() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payload Links</h2>
-        {linksLoading ? (
+        {loading ? (
           <Spinner />
         ) : (
           <LinksTable
-            links={links ?? []}
-            clients={clients ?? []}
+            links={links}
+            clients={clients}
             serverAddr={c2Url ?? window.location.origin}
-            onUpdated={refetchAll}
+            onUpdated={refetch}
           />
         )}
       </section>
@@ -144,13 +86,13 @@ export default function Dashboard() {
         <h2 className="text-lg font-semibold">
           Connected Clients{" "}
           <span className="text-sm font-normal text-muted-foreground">
-            ({clients?.length ?? 0})
+            ({clients.length})
           </span>
         </h2>
-        {clientsLoading ? (
+        {loading ? (
           <Spinner />
         ) : (
-          <ClientsTable clients={clients ?? []} onUpdated={refetchAll} />
+          <ClientsTable clients={clients} onUpdated={refetch} />
         )}
       </section>
     </div>

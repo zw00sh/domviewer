@@ -112,6 +112,21 @@ export async function startTestServer() {
             });
           },
 
+          /**
+           * Connect a dashboard WebSocket to the management server.
+           * Returns { ws, collector, ready } where the collector is attached before open
+           * so no messages are missed between open and collector setup.
+           */
+          connectDashboardWs() {
+            const ws = new WebSocket(`${mgmtWsUrl}/view?payload=dashboard`);
+            const collector = createMessageCollector(ws);
+            const ready = new Promise((res, rej) => {
+              ws.on("open", () => res());
+              ws.on("error", rej);
+            });
+            return { ws, collector, ready };
+          },
+
           /** Connect a log viewer WebSocket to the management server. */
           connectLogViewerWs(clientId = null) {
             return new Promise((res, rej) => {

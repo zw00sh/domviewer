@@ -19,6 +19,15 @@ export function buildViewerWsUrl(clientId: string, payload: string): string {
 }
 
 /**
+ * Build the WebSocket URL for the dashboard subscription.
+ * Receives live link/client change events from the management server.
+ */
+export function buildDashboardWsUrl(): string {
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/view?payload=dashboard`;
+}
+
+/**
  * Build the WebSocket URL for the global log viewer (no specific client).
  */
 export function buildLogViewerWsUrl(): string {

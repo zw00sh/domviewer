@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { EventEmitter } from "node:events";
 import { fileURLToPath } from "node:url";
 import { WS_OPEN } from "./ws-utils.js";
 
@@ -61,6 +62,12 @@ export async function createState(db) {
     validateHandler(name, handler);
     payloadHandlers[name] = handler;
   }
+
+  /**
+   * Event emitter for cross-server notifications.
+   * Emitted events: "client-connected" (clientId), "client-disconnected" (clientId)
+   */
+  const events = new EventEmitter();
 
   /**
    * Active client runtime state — only populated while the client WS is open.
@@ -241,6 +248,7 @@ export async function createState(db) {
     payloadHandlers,
     activeClients,
     logViewers,
+    events,
     readPayloadBundle,
     storeLog,
     loadPayloadOnClient,
