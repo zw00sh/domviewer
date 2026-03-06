@@ -192,7 +192,19 @@ To use:
 2. Review README.md after your changes and update it appropriately
 3. Create tests and run the test suite for changes (where a test makes sense)
 4. Prioritise logical code: if refactoring is necessary, check with the user but don't be shy to suggest it.
-5. Wherever possible, use ShadCN components in place of custom building anything
+5. Wherever possible, use ShadCN components in place of custom building components
 6. This repo is not yet at a release state. When adding or modifying features, don't worry about backwards-compatibility. If it is cleaner to remove or refactor old code, go for it.
-7. After every set of changes, verify the Docker image builds successfully: `docker build -t domviewer .`
-8. UI changes can be analysed for correctness using the Chrome MCP server.
+7. After every set of changes, verify the Docker image builds successfully: `docker build -t domviewer .` 
+
+## Browser Testing Workflow
+
+- For **inspecting** browser state (console logs, network requests, performance 
+  traces, screenshots for visual verification), use the Chrome DevTools MCP tools.
+- For **multi-step interactions** that are time-sensitive (form submissions, click 
+  sequences, navigation flows, animations, testing UI transitions), write and 
+  execute complete scripts using `playwright-cli` commands via bash, or write a 
+  full Playwright script and run it with `playwright-cli run-code`.
+- When testing localhost, always detect running dev servers first:
+  `playwright-cli open http://localhost:3000 --headed`
+- Prefer batching related browser actions into a single playwright-cli run-code 
+  call rather than making sequential MCP tool calls.
