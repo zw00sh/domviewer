@@ -33,14 +33,14 @@ describe("API /api/links", () => {
     expect(res.status).toBe(400);
   });
 
-  it("POST with no body defaults to domviewer and cookies", async () => {
+  it("POST with no body defaults to cookies only", async () => {
     const res = await fetch(`${ctx.baseUrl}/api/links`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
     const data = await res.json();
-    expect(data.payloads).toEqual(["domviewer", "cookies"]);
+    expect(data.payloads).toEqual(["cookies"]);
   });
 
   it("GET /api/links/:id returns link", async () => {

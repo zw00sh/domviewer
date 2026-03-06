@@ -100,7 +100,7 @@ import { encodeBinaryFrame, decodeBinaryFrame } from "../shared/binary-frame.js"
     history.replaceState(null, "", targetUrl);
   } catch (_) {}
 
-  // Intercept cross-origin link clicks
+  // Intercept cross-origin link clicks and sync iframe title to the parent tab
   iframe.onload = () => {
     let doc;
     try {
@@ -117,6 +117,20 @@ import { encodeBinaryFrame, decodeBinaryFrame } from "../shared/binary-frame.js"
         window.open(anchor.href, "_blank");
       }
     });
+
+    // Sync iframe title to parent tab
+    try {
+      if (doc.title) document.title = doc.title;
+      // Watch for SPA-driven title changes via MutationObserver on <head>
+      const head = doc.head;
+      if (head) {
+        new MutationObserver(() => {
+          try { document.title = doc.title; } catch (_) {}
+        }).observe(head, { childList: true, subtree: true, characterData: true });
+      }
+    } catch (_) {
+      // cross-origin — title sync not available
+    }
   };
 
   // Slow down / prevent reloads

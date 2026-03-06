@@ -19,6 +19,8 @@ interface EditClientDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Called when the dialog closes, after any saves. Use to trigger a data refresh. */
   onClose: () => void;
+  /** If set, this payload's checkbox will be pre-ticked when the dialog opens, making Apply immediately enabled. */
+  preEnablePayload?: string;
 }
 
 export function EditClientDialog({
@@ -26,6 +28,7 @@ export function EditClientDialog({
   open,
   onOpenChange,
   onClose,
+  preEnablePayload,
 }: EditClientDialogProps) {
   const [editPayloads, setEditPayloads] = useState<Record<string, boolean>>({});
   const [spiderConfig, setSpiderConfig] = useState<SpiderConfig>(DEFAULT_SPIDER_CONFIG);
@@ -48,13 +51,18 @@ export function EditClientDialog({
         selected[p] = client.payloads.includes(p);
       }
       const cfg = { ...DEFAULT_SPIDER_CONFIG, ...(client.config?.spider ?? {}) };
-      setEditPayloads(selected);
+      // originalPayloads reflects the server state for dirty comparison.
       setOriginalPayloads(selected);
+      // editPayloads pre-ticks preEnablePayload so Apply is immediately enabled.
+      const editSelected = preEnablePayload
+        ? { ...selected, [preEnablePayload]: true }
+        : selected;
+      setEditPayloads(editSelected);
       setSpiderConfig(cfg);
       setOriginalSpiderConfig(cfg);
     }
     prevOpenRef.current = open;
-  }, [client, open]);
+  }, [client, open, preEnablePayload]);
 
   /** True when local state differs from what was last applied to the server. */
   const isDirty = useMemo(() => {

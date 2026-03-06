@@ -130,7 +130,7 @@ export function createManagementServer(state, opts = {}) {
     const rawPayloads = req.body.payloads;
     const payloads = rawPayloads !== undefined
       ? rawPayloads.filter((p) => payloadHandlers[p])
-      : ["domviewer", "cookies"];
+      : ["cookies"];
     if (rawPayloads?.length > 0 && payloads.length === 0) {
       res.status(400).json({ error: "No valid payloads specified" });
       return;

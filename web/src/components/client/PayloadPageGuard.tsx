@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { WifiOff } from "lucide-react";
 import { usePolling } from "@/hooks/use-polling";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { TOOLS, getPayloadLabel } from "@/lib/constants";
@@ -27,6 +28,24 @@ export function PayloadPageGuard({ clientId, payloadKey, children }: PayloadPage
 
   // While loading, render children (avoids flash of "not enabled" on first load)
   if (loading || !client) return <>{children}</>;
+
+  // Client offline — show offline card (checked before payloads, so a disabled tool
+  // on an offline client doesn't show the misleading "not enabled" message)
+  if (client.connected === false) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Card className="w-80 text-center">
+          <CardHeader className="items-center gap-2">
+            <WifiOff className="h-8 w-8 text-muted-foreground" />
+            <CardTitle>Client offline</CardTitle>
+            <CardDescription>
+              This client is not currently connected to the C2 server.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   // Payload is configured — render the page
   if (client.payloads.includes(payloadKey)) return <>{children}</>;
@@ -59,6 +78,7 @@ export function PayloadPageGuard({ clientId, payloadKey, children }: PayloadPage
         open={editOpen}
         onOpenChange={setEditOpen}
         onClose={refetch}
+        preEnablePayload={payloadKey}
       />
     </>
   );

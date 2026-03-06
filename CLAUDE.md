@@ -195,4 +195,4 @@ To use:
 5. Wherever possible, use ShadCN components in place of custom building anything
 6. This repo is not yet at a release state. When adding or modifying features, don't worry about backwards-compatibility. If it is cleaner to remove or refactor old code, go for it.
 7. After every set of changes, verify the Docker image builds successfully: `docker build -t domviewer .`
-8. UI changes can be analysed for correctness using the Chrome MCP server. Confirm with the user if a UI change requires verification via the MCP server, as this is expensive.
+8. UI changes can be analysed for correctness using the Chrome MCP server.

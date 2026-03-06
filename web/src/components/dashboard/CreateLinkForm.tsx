@@ -25,7 +25,7 @@ export function CreateLinkForm({ onCreated, onClose, c2Url }: CreateLinkFormProp
   }, [c2Url]);
 
   const [selected, setSelected] = useState<Record<string, boolean>>({
-    domviewer: true,
+    domviewer: false,
     spider: false,
     proxy: false,
     cookies: true,
