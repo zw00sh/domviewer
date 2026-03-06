@@ -79,6 +79,40 @@ describe("Payload lifecycle hooks", () => {
 
   // ---------- Item 6: onDisconnect ----------
 
+  it("domviewer viewer receives disconnected event when client WS closes", async () => {
+    const link = await ctx.createLink(["domviewer"]);
+    const ws = await ctx.connectPayloadWs();
+
+    try {
+      const { clientId } = await doHandshake(ws, link);
+
+      // Connect a domviewer viewer
+      const viewerWs = new WebSocket(`${ctx.wsUrl}/view?id=${clientId}&payload=domviewer`);
+      const viewerCollector = createMessageCollector(viewerWs);
+      await new Promise((res, rej) => {
+        viewerWs.on("open", res);
+        viewerWs.on("error", rej);
+      });
+
+      // Consume the initial snapshot
+      await viewerCollector.wait((m) => m.type === "snapshot");
+
+      // Set up wait for disconnected BEFORE closing the payload WS
+      const disconnectPromise = viewerCollector.wait((m) => m.type === "disconnected");
+
+      // Disconnect the payload client
+      ws.close();
+      await new Promise((r) => setTimeout(r, 100));
+
+      const disconnectMsg = await disconnectPromise;
+      expect(disconnectMsg.type).toBe("disconnected");
+
+      viewerWs.close();
+    } finally {
+      try { ws.close(); } catch (_) {}
+    }
+  });
+
   it("spider viewer receives disconnected event when client WS closes", async () => {
     const link = await ctx.createLink(["spider"]);
     const ws = await ctx.connectPayloadWs();

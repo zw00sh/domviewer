@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { useKeylogger } from "@/hooks/use-keylogger";
 import type { KeyloggerEntry } from "@/hooks/use-keylogger";
 import { Button } from "@/components/ui/button";
@@ -122,7 +123,7 @@ export function KeyloggerPanel({
   clientId,
   onStatusChange,
 }: KeyloggerPanelProps) {
-  const { entries, status, clearEntries } = useKeylogger(clientId);
+  const { entries, status, clientConnected, clearEntries } = useKeylogger(clientId);
   const [viewMode, setViewMode] = useState<"grouped" | "stream">("grouped");
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [activeTypeFilters, setActiveTypeFilters] = useState<Set<string>>(new Set());
@@ -130,6 +131,12 @@ export function KeyloggerPanel({
   useEffect(() => {
     onStatusChange?.(status);
   }, [status, onStatusChange]);
+
+  useEffect(() => {
+    if (!clientConnected) {
+      toast("Client disconnected from C2");
+    }
+  }, [clientConnected]);
 
   /** Split entries into contiguous interaction sessions (O(n) single pass). */
   const sessions = useMemo<InteractionSession[]>(() => {

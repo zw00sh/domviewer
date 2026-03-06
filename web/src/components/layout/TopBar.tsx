@@ -12,22 +12,24 @@ import type { Client } from "@/types/api";
 
 interface TopBarProps {
   clientId?: string;
-  /** WS connection status — omit to hide the indicator dot */
-  status?: "connecting" | "open" | "closed";
   /** Optional current page URL shown inline after the client ID (e.g. for DomViewer) */
   currentUrl?: string;
 }
 
 /**
  * TopBar for tool pages. When clientId is provided, shows tool navigation,
- * client ID with copy + tooltip (IP/origin), WS status, and edit/delete actions.
- * Without a clientId (global logs), renders a minimal back link + title only.
+ * client ID with copy + tooltip (IP/origin), C2 connection status dot, and
+ * edit/delete actions. Without a clientId (global logs), renders a minimal
+ * back link + title only.
+ *
+ * The status dot reflects the client's C2 connection state (from API polling),
+ * not the viewer WebSocket connection.
  */
-export function TopBar({ clientId, status, currentUrl }: TopBarProps) {
+export function TopBar({ clientId, currentUrl }: TopBarProps) {
   if (!clientId) {
     return <GlobalTopBar />;
   }
-  return <ClientTopBar clientId={clientId} status={status} currentUrl={currentUrl} />;
+  return <ClientTopBar clientId={clientId} currentUrl={currentUrl} />;
 }
 
 function GlobalTopBar() {
@@ -43,11 +45,9 @@ function GlobalTopBar() {
 
 function ClientTopBar({
   clientId,
-  status,
   currentUrl,
 }: {
   clientId: string;
-  status?: "connecting" | "open" | "closed";
   currentUrl?: string;
 }) {
   const location = useLocation();
@@ -105,13 +105,21 @@ function ClientTopBar({
             </span>
           )}
 
-          {status && (
-            <span
-              className={cn(
-                "inline-block w-2 h-2 rounded-full",
-                status === "open" ? "bg-green-500" : "bg-red-500"
-              )}
-            />
+          {/* C2 connection status dot — reflects client.connected from API poll */}
+          {client && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    "inline-block w-2 h-2 rounded-full cursor-default",
+                    client.connected ? "bg-green-500" : "bg-red-500"
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {client.connected ? "Connected to C2" : "Disconnected from C2"}
+              </TooltipContent>
+            </Tooltip>
           )}
         </span>
 

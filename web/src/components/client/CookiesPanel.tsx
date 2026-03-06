@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { useCookies } from "@/hooks/use-cookies";
 import type { CookieEntry } from "@/hooks/use-cookies";
 import { Button } from "@/components/ui/button";
@@ -38,12 +39,18 @@ function formatTimestamp(ts: number): string {
  * History view — shows all cookie change events in chronological order.
  */
 export function CookiesPanel({ clientId, onStatusChange }: CookiesPanelProps) {
-  const { cookies, status, clearCookies } = useCookies(clientId);
+  const { cookies, status, clientConnected, clearCookies } = useCookies(clientId);
   const [viewMode, setViewMode] = useState<"current" | "history">("current");
 
   useEffect(() => {
     onStatusChange?.(status);
   }, [status, onStatusChange]);
+
+  useEffect(() => {
+    if (!clientConnected) {
+      toast("Client disconnected from C2");
+    }
+  }, [clientConnected]);
 
   /**
    * Build a last-write-wins Map of name → CookieEntry for the "Current" view.

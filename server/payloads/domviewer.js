@@ -53,3 +53,13 @@ export function onConnect(state, { isReconnect, sendToClient }) {
     sendToClient({ type: "request-sync" });
   }
 }
+
+/**
+ * Called when the client WebSocket closes.
+ * Notifies any connected viewers that the client is offline.
+ * @param {{ viewers: Set }} state
+ */
+export function onDisconnect(state) {
+  if (state.viewers.size === 0) return;
+  broadcast(state.viewers, JSON.stringify({ type: "disconnected" }));
+}

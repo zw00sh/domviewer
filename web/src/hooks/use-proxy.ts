@@ -113,6 +113,8 @@ export interface UseProxyResult {
    * full capture.
    */
   lastWasSnapshot: boolean;
+  /** False when the client has disconnected from C2 (reset to true on next DOM message). */
+  clientConnected: boolean;
   /**
    * Pass this to `useWebSocket`'s `onMessage` option so every incoming message
    * is applied synchronously without React batching drops.
@@ -141,6 +143,7 @@ export function useProxy(
   const metaRef = useRef<Meta>({});
   const [version, setVersion] = useState<number>(0);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [clientConnected, setClientConnected] = useState(true);
   /**
    * Tracks whether the last DOM update was a full snapshot.  Set synchronously
    * before each `setVersion` call so the value is stable for the render cycle
@@ -174,7 +177,10 @@ export function useProxy(
           // Record snapshot flag before triggering re-render so the effect
           // that fires after the render sees the correct value.
           lastWasSnapshotRef.current = msg.type === "snapshot";
-          setVersion((v) => v + 1);
+          setClientConnected(true);
+          // Only increment version when there is real DOM content — an offline
+          // client's initial empty snapshot has no rootId and should not count.
+          if (metaRef.current.rootId) setVersion((v) => v + 1);
           if (msg.type === "snapshot") {
             if ((msg as ProxySnapshotMessage).proxyUrl) {
               setProxyUrl((msg as ProxySnapshotMessage).proxyUrl!);
@@ -292,12 +298,12 @@ export function useProxy(
           break;
 
         case "disconnected":
-          // No state change needed — the panel can observe WS status instead
+          setClientConnected(false);
           break;
       }
     },
     [iframeRef]
   );
 
-  return { version, renderHtml, proxyUrl, onMessage, lastWasSnapshot: lastWasSnapshotRef.current };
+  return { version, renderHtml, proxyUrl, clientConnected, onMessage, lastWasSnapshot: lastWasSnapshotRef.current };
 }

