@@ -193,18 +193,133 @@ To use:
 3. Create tests and run the test suite for changes (where a test makes sense)
 4. Prioritise logical code: if refactoring is necessary, check with the user but don't be shy to suggest it.
 5. Wherever possible, use ShadCN components in place of custom building components
+5. Wherever possible, use ShadCN components in place of custom building components
 6. This repo is not yet at a release state. When adding or modifying features, don't worry about backwards-compatibility. If it is cleaner to remove or refactor old code, go for it.
 7. After every set of changes, verify the Docker image builds successfully: `docker build -t domviewer .` 
+8. Always test UI changes in the browser (see below). Include instructions to do so in your plans.
 
-## Browser Testing Workflow
+# Browser Testing
 
-- For **inspecting** browser state (console logs, network requests, performance 
-  traces, screenshots for visual verification), use the Chrome DevTools MCP tools.
-- For **multi-step interactions** that are time-sensitive (form submissions, click 
-  sequences, navigation flows, animations, testing UI transitions), write and 
-  execute complete scripts using `playwright-cli` commands via bash, or write a 
-  full Playwright script and run it with `playwright-cli run-code`.
-- When testing localhost, always detect running dev servers first:
-  `playwright-cli open http://localhost:3000 --headed`
-- Prefer batching related browser actions into a single playwright-cli run-code 
-  call rather than making sequential MCP tool calls.
+## Tools
+
+Two browser tools are available, each for a different purpose:
+
+- **Chrome DevTools MCP** — for observing browser state (console logs, network requests, performance traces, screenshots). Uses MCP tool calls.
+- **Playwright CLI** — for driving browser interactions (clicks, form fills, navigation, multi-step flows). Runs via bash, no MCP overhead.
+
+Use DevTools to _see_ what's happening. Use Playwright CLI to _do_ things.
+
+## When to Use Which
+
+Use **Chrome DevTools MCP** when the task is:
+
+- Reading console logs or errors
+- Inspecting network requests and responses
+- Running performance traces or measuring Core Web Vitals
+- Taking a screenshot to verify visual state
+- Executing a single JavaScript expression via evaluateScript
+
+Use **Playwright CLI** (via bash) when the task is:
+
+- Multi-step interactions (form fill → submit → verify result)
+- Any flow where timing matters (animations, transitions, race conditions)
+- Click sequences or navigation that must happen without delay between steps
+- Cross-browser verification (Chromium, Firefox, WebKit)
+
+If a task involves both observation and interaction, use both tools: DevTools for reading state before/after, Playwright CLI for the interaction itself.
+
+## Ephemeral vs Permanent Tests
+
+There are two categories of test scripts in this project. They must stay strictly separated.
+
+### Permanent E2E tests
+
+- Live in `tests/e2e/`
+- Committed to the repo and run in CI
+- Follow project conventions (Page Object Model, describe/test blocks, meaningful assertions, idempotent)
+- Run with `npx playwright test`
+- Use the project's `playwright.config.ts`
+
+### Ephemeral agent tests
+
+- Written by Claude during development to verify a fix, debug an issue, or test a flow
+- Written to `/tmp/playwright-test-*.js` or `.playwright-scratch/`
+- Never committed (`.playwright-scratch/` is in `.gitignore`)
+- Run with `playwright-cli` commands or `playwright-cli run-code`
+- Never use `npx playwright test` — that picks up the project config and could interfere with the real suite
+
+### Rules
+
+- Never create, modify, or delete files in `tests/e2e/` unless explicitly asked to write or edit a permanent test.
+- Never modify `playwright.config.ts` for ephemeral testing.
+- Never import from or reference `.playwright-scratch/` in committed code.
+- Never run ephemeral scripts with `npx playwright test`.
+
+## Playwright CLI Usage
+
+### Starting a session
+
+```bash
+# Open a browser to the dev server
+playwright-cli open http://localhost:3000 --headed
+
+# Or headless (default)
+playwright-cli open http://localhost:3000
+\```
+
+For localhost testing, detect running dev servers first before hardcoding a port.
+
+### Simple interactions
+
+After `open`, each command returns a YAML snapshot with element references (e.g., `e15`, `e22`). Use these refs in subsequent commands:
+
+```bash
+playwright-cli click e15
+playwright-cli fill e22 "test@example.com"
+playwright-cli press Enter
+playwright-cli screenshot
+```
+
+### Atomic multi-step flows
+
+For time-sensitive sequences that must execute without LLM round-trips between steps, use `run-code` to run a complete script in one shot:
+
+```bash
+playwright-cli run-code "async page => {
+  await page.goto('http://localhost:3000/checkout');
+  await page.fill('#email', 'test@example.com');
+  await page.fill('#card', '4242424242424242');
+  await page.click('[data-testid=submit]');
+  await page.waitForURL('**/confirmation');
+  await page.screenshot({ path: '/tmp/confirmation.png' });
+}"
+```
+
+Everything inside the quotes executes at native Playwright speed.
+
+### Closing
+
+```bash
+playwright-cli close
+```
+
+## Chrome DevTools MCP Usage
+
+Refer to the tools listed under `/mcp → chrome-devtools`. Common patterns:
+
+- `navigate_page` + `list_console_messages` — check for errors after navigation
+- `navigate_page` + `list_network_requests` — inspect API calls
+- `performance_start_trace` + `performance_analyze_insight` — measure Core Web Vitals
+- `take_screenshot` — quick visual verification
+- `evaluate_script` — run JS in the page context (use for batching multiple reads into a single call to avoid round-trips)
+
+When using evaluateScript for multiple DOM reads, batch them into a single call that returns a JSON object rather than making separate calls for each value.
+
+## Promoting an Ephemeral Test
+
+If asked to keep an ephemeral test or add it to the suite:
+
+1. Rewrite it in `tests/e2e/` following project conventions (Page Object Model, describe/test blocks, proper assertions).
+2. Make sure it is idempotent and does not depend on transient state.
+3. Delete the ephemeral version from `/tmp` or `.playwright-scratch/`.
+4. Run the full suite (`npx playwright test`) to verify no conflicts.
