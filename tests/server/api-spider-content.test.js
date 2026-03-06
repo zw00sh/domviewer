@@ -138,6 +138,46 @@ describe("GET /api/clients/:id/spider/content/:contentId", () => {
   });
 });
 
+describe("large file upload via binary frame", () => {
+  it("stores and returns a ~500KB file correctly", async () => {
+    ctx = await startTestServer();
+    const { id: linkId } = await ctx.createLink(["spider"]);
+    const ws = await ctx.connectPayloadWs();
+    const { clientId } = await doHandshake(ws, linkId);
+
+    // Generate ~500KB of JS content
+    const url = "https://example.com/bundle.js";
+    const largeContent = "var x = " + "a".repeat(500 * 1024 - 10) + ";";
+    const contentData = buildSpiderContentData(url, "application/javascript", largeContent);
+    const binaryFrame = makeBinaryFrame("spider", new Uint8Array(contentData));
+    ws.send(binaryFrame, { binary: true });
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Version list should report correct size
+    const versRes = await fetch(
+      `${ctx.baseUrl}/api/clients/${clientId}/spider/content?url=${encodeURIComponent(url)}`
+    );
+    expect(versRes.status).toBe(200);
+    const versions = await versRes.json();
+    expect(versions.length).toBe(1);
+    expect(versions[0].url).toBe(url);
+    expect(versions[0].contentType).toBe("application/javascript");
+    expect(versions[0].size).toBe(largeContent.length);
+
+    // Full body should be retrievable and intact
+    const dlRes = await fetch(
+      `${ctx.baseUrl}/api/clients/${clientId}/spider/content/${versions[0].id}`
+    );
+    expect(dlRes.status).toBe(200);
+    expect(dlRes.headers.get("content-type")).toContain("application/javascript");
+    const body = await dlRes.text();
+    expect(body).toBe(largeContent);
+
+    ws.close();
+  });
+});
+
 describe("GET /api/clients/:id/spider/download", () => {
   it("returns 404 when no content exists for prefix", async () => {
     ctx = await startTestServer();

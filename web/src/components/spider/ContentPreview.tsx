@@ -16,6 +16,9 @@ interface ContentPreviewProps {
   onExfiltrate?: (urls: string[]) => void;
 }
 
+/** Files larger than this will not be fetched or syntax-highlighted inline. */
+const MAX_PREVIEW_SIZE = 100 * 1024; // 100 KB
+
 /** Formats a byte count as a human-readable string (e.g. "12.3 KB"). */
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -113,6 +116,12 @@ export function ContentPreview({ clientId, url, refreshKey, connected = false, i
       return;
     }
 
+    if (version.size > MAX_PREVIEW_SIZE) {
+      // Too large to highlight inline — skip fetch
+      setHighlightedHtml(null);
+      return;
+    }
+
     let cancelled = false;
     setBodyLoading(true);
     setHighlightedHtml(null);
@@ -137,7 +146,8 @@ export function ContentPreview({ clientId, url, refreshKey, connected = false, i
 
   const selectedVersion = versions.find((v) => v.id === selectedId);
   const showText = selectedVersion && isText(selectedVersion.contentType);
-  const showHighlighted = showText && highlightedHtml !== null;
+  const tooLarge = showText && selectedVersion.size > MAX_PREVIEW_SIZE;
+  const showHighlighted = showText && !tooLarge && highlightedHtml !== null;
 
   return (
     <div className="mt-2 space-y-2">
@@ -190,7 +200,18 @@ export function ContentPreview({ clientId, url, refreshKey, connected = false, i
             {selectedVersion.contentType || "unknown type"} · {formatSize(selectedVersion.size)}
           </div>
           {showText ? (
-            bodyLoading ? (
+            tooLarge ? (
+              <div className="text-xs text-muted-foreground italic">
+                File too large to preview ({formatSize(selectedVersion.size)}) —{" "}
+                <a
+                  href={`/api/clients/${clientId}/spider/content/${selectedVersion.id}`}
+                  download
+                  className="underline hover:text-foreground"
+                >
+                  download to view
+                </a>
+              </div>
+            ) : bodyLoading ? (
               <p className="text-xs text-muted-foreground italic">Loading content...</p>
             ) : showHighlighted ? (
               /* Shiki outputs a <pre><code>…</code></pre> with inline CSS variable styles.

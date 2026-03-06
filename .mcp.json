@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "chrome-devtools-mcp": {
+      "type": "stdio",
+      "command": "chrome-devtools-mcp",
+      "args": [
+        "--no-usage-statistics",
+        "-e",
+        "./scripts/playwright-chromium.sh"
+      ]
+    }
+  }
+}

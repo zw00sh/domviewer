@@ -75,7 +75,14 @@ interface FocusSyncMessage {
   nid: string;
 }
 
+interface ClientInfoMessage {
+  type: "client-info";
+  connected: boolean;
+  payloadEnabled: boolean;
+}
+
 type ProxyMessage =
+  | ClientInfoMessage
   | ProxySnapshotMessage
   | DeltaMessage
   | MetaMessage
@@ -115,6 +122,8 @@ export interface UseProxyResult {
   lastWasSnapshot: boolean;
   /** False when the client has disconnected from C2 (reset to true on next DOM message). */
   clientConnected: boolean;
+  /** False when the proxy payload is not enabled on this client (set by client-info). */
+  payloadEnabled: boolean;
   /**
    * Pass this to `useWebSocket`'s `onMessage` option so every incoming message
    * is applied synchronously without React batching drops.
@@ -144,6 +153,7 @@ export function useProxy(
   const [version, setVersion] = useState<number>(0);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [clientConnected, setClientConnected] = useState(true);
+  const [payloadEnabled, setPayloadEnabled] = useState(true);
   /**
    * Tracks whether the last DOM update was a full snapshot.  Set synchronously
    * before each `setVersion` call so the value is stable for the render cycle
@@ -170,6 +180,11 @@ export function useProxy(
       if (!msg.type) return;
 
       switch (msg.type) {
+        case "client-info":
+          setClientConnected(msg.connected);
+          setPayloadEnabled(msg.payloadEnabled);
+          break;
+
         case "snapshot":
         case "delta":
         case "meta":
@@ -177,10 +192,13 @@ export function useProxy(
           // Record snapshot flag before triggering re-render so the effect
           // that fires after the render sees the correct value.
           lastWasSnapshotRef.current = msg.type === "snapshot";
-          setClientConnected(true);
-          // Only increment version when there is real DOM content — an offline
-          // client's initial empty snapshot has no rootId and should not count.
-          if (metaRef.current.rootId) setVersion((v) => v + 1);
+          // Only update state when there is real DOM content. An offline client's
+          // initial empty snapshot has no rootId and must not override the
+          // clientConnected=false set by client-info.
+          if (metaRef.current.rootId) {
+            setClientConnected(true);
+            setVersion((v) => v + 1);
+          }
           if (msg.type === "snapshot") {
             if ((msg as ProxySnapshotMessage).proxyUrl) {
               setProxyUrl((msg as ProxySnapshotMessage).proxyUrl!);
@@ -305,5 +323,5 @@ export function useProxy(
     [iframeRef]
   );
 
-  return { version, renderHtml, proxyUrl, clientConnected, onMessage, lastWasSnapshot: lastWasSnapshotRef.current };
+  return { version, renderHtml, proxyUrl, clientConnected, payloadEnabled, onMessage, lastWasSnapshot: lastWasSnapshotRef.current };
 }

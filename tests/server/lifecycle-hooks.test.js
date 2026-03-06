@@ -193,24 +193,34 @@ describe("Payload lifecycle hooks", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(ctx.clients.get(clientId).connected).toBe(false);
 
-    // Connect a viewer — should receive the "No DOM captured yet" placeholder, not a close
+    // Connect a viewer — should receive the "No DOM captured yet" placeholder, not a close.
+    // The server sends client-info first, then the handler's initial message.
     const viewerWs = new WebSocket(`${ctx.wsUrl}/view?id=${clientId}&payload=domviewer`);
-    const firstMsg = await new Promise((resolve, reject) => {
-      viewerWs.once("message", (data) => resolve(data.toString()));
+    const handlerMsg = await new Promise((resolve, reject) => {
+      viewerWs.on("message", (data) => {
+        const raw = data.toString();
+        try {
+          const m = JSON.parse(raw);
+          if (m.type === "client-info") return; // skip — wait for handler's message
+          resolve(raw);
+        } catch (_) { resolve(raw); }
+      });
       viewerWs.on("error", reject);
       viewerWs.on("close", () => reject(new Error("Viewer WS closed before message")));
     });
 
     // Viewer now receives a JSON snapshot instead of rendered HTML
-    const parsed = JSON.parse(firstMsg);
+    const parsed = JSON.parse(handlerMsg);
     expect(parsed.type).toBe("snapshot");
     expect(parsed.nodes).toEqual({});
     expect(parsed.meta).toEqual({});
     viewerWs.close();
   });
 
-  it("viewer for offline client with payload not in client's list is rejected", async () => {
-    // Create a domviewer-only link (no spider)
+  it("viewer for offline client with ephemeral payload not in client's list is rejected", async () => {
+    // Create a domviewer-only link (no proxy). DB-backed payloads (spider/keylogger/cookies)
+    // are always accessible; ephemeral payloads (proxy/domviewer) are only accessible if
+    // they were enabled. Test with proxy (ephemeral, not in list) — should be rejected.
     const link = await ctx.createLink(["domviewer"]);
     const ws = await ctx.connectPayloadWs();
     const { clientId } = await doHandshake(ws, link);
@@ -219,8 +229,8 @@ describe("Payload lifecycle hooks", () => {
     ws.close();
     await new Promise((r) => setTimeout(r, 100));
 
-    // Try to connect a spider viewer — should be rejected
-    const viewerWs = new WebSocket(`${ctx.wsUrl}/view?id=${clientId}&payload=spider`);
+    // Try to connect a proxy viewer — should be rejected (ephemeral payload, not enabled)
+    const viewerWs = new WebSocket(`${ctx.wsUrl}/view?id=${clientId}&payload=proxy`);
     await waitForClose(viewerWs);
   });
 

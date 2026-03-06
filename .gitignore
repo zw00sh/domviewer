@@ -3,6 +3,8 @@ dist/
 data/
 test-results/
 playwright-report/
+.playwright-cli/
+.playwright-scratch/
 tests/e2e/.server-urls.json
 .vscode/
 *.log

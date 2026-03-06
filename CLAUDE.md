@@ -205,9 +205,14 @@ To use:
 Two browser tools are available, each for a different purpose:
 
 - **Chrome DevTools MCP** — for observing browser state (console logs, network
-  requests, performance traces, screenshots). Uses MCP tool calls.
+  requests, performance traces, screenshots). Uses MCP tool calls. Configured
+  in `.mcp.json` (project-scoped, committed to repo).
 - **Playwright CLI** — for driving browser interactions (clicks, form fills,
   navigation, multi-step flows). Runs via bash, no MCP overhead.
+
+Both tools use the same Playwright-bundled Chromium binary. The Chrome DevTools
+MCP is configured via `-e ./scripts/playwright-chromium.sh` which resolves the
+latest Playwright Chromium revision dynamically.
 
 Use DevTools to *see* what's happening. Use Playwright CLI to *do* things.
 
@@ -249,7 +254,7 @@ strictly separated.
   test a flow
 - Written to `/tmp/playwright-test-*.js` or `.playwright-scratch/`
 - Never committed (`.playwright-scratch/` is in `.gitignore`)
-- Run with `playwright-cli` commands or `playwright-cli run-code`
+- Run with `playwright-cli` commands (open, click, fill, eval, run-code, etc.)
 - Never use `npx playwright test` — that picks up the project config and could
   interfere with the real suite
 
@@ -273,27 +278,16 @@ manual approval, which defeats the purpose of agentic testing.
 **The golden rule: one simple command per bash call, no shell features.**
 
 1. **Never combine multiple commands in a single bash call.** Claude Code flags
-   "ambiguous syntax with command separators." The heredoc write and the
-   playwright-cli execution MUST be two separate bash invocations.
+   "ambiguous syntax with command separators."
    ```bash
-   # WRONG — two commands in one bash call triggers "command separators" warning
-   cat > /tmp/pw-test.js << 'SCRIPT'
-   module.exports = async (page) => {
-     await page.goto('http://localhost:3000');
-   };
-   SCRIPT
-   playwright-cli run-code /tmp/pw-test.js
+   # WRONG — two commands in one bash call
+   playwright-cli open http://localhost:3000 --headed && playwright-cli click e15
 
-   # RIGHT — first bash call: write the file
-   cat > /tmp/pw-test.js << 'SCRIPT'
-   module.exports = async (page) => {
-     await page.goto('http://localhost:3000');
-   };
-   SCRIPT
+   # RIGHT — each command in a separate bash invocation
+   playwright-cli open http://localhost:3000 --headed
    ```
    ```bash
-   # RIGHT — second bash call: run it
-   playwright-cli run-code /tmp/pw-test.js
+   playwright-cli click e15
    ```
 
 2. **Never use shell variables or `${}` in any command.** Inline all values
@@ -307,15 +301,12 @@ manual approval, which defeats the purpose of agentic testing.
    playwright-cli goto http://localhost:3000/client/cb1779e3-7c26-4b3b-8c9b-aa9a6ccdee39
    ```
 
-3. **Never pass multi-line JavaScript as an inline string to `run-code`.** Write
-   it to a file first (see pattern in rule 1). The `<< 'SCRIPT'` heredoc with
-   single-quoted delimiter prevents all shell expansion inside the block.
+3. **`run-code` takes inline code, not a file path.** For simple expressions,
+   use `eval` instead. For multi-step flows, use sequential `playwright-cli`
+   commands (one per bash call) or write a script file and use `eval` to load it.
    ```bash
-   # WRONG — multi-line inline string triggers warnings
-   playwright-cli run-code "async page => {
-     await page.goto('http://localhost:3000');
-     await page.click('#submit');
-   }"
+   # Simple expression
+   playwright-cli eval "document.title"
    ```
 
 4. **Never use backticks, `$(...)`, or `&&`/`;` to join commands.**
@@ -361,30 +352,18 @@ playwright-cli screenshot
 ### Atomic multi-step flows
 
 For time-sensitive sequences that must execute without LLM round-trips between
-steps, write a script file in one bash call, then run it in a second:
+steps, use `run-code` with an inline JavaScript snippet. The `run-code` command
+takes a code string (not a file path) and executes it against the current page:
 
-**Bash call 1 — write the script:**
 ```bash
-cat > /tmp/pw-checkout-test.js << 'SCRIPT'
-module.exports = async (page) => {
-  await page.goto('http://localhost:3000/checkout');
-  await page.fill('#email', 'test@example.com');
-  await page.fill('#card', '4242424242424242');
-  await page.click('[data-testid=submit]');
-  await page.waitForURL('**/confirmation');
-  await page.screenshot({ path: '/tmp/confirmation.png' });
-};
-SCRIPT
+playwright-cli run-code "await page.fill('#email', 'test@example.com'); await page.click('[data-testid=submit]'); await page.waitForURL('**/confirmation');"
 ```
 
-**Bash call 2 — execute it:**
-```bash
-playwright-cli run-code /tmp/pw-checkout-test.js
-```
+For longer scripts, use `eval` to run JavaScript in the page context:
 
-The heredoc writes the full script to disk with no shell expansion (single-quoted
-delimiter). The second call executes it at native Playwright speed — no safety
-prompts, no LLM round-trips between steps.
+```bash
+playwright-cli eval "document.querySelector('#result').textContent"
+```
 
 ### Closing
 

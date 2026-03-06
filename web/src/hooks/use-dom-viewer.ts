@@ -15,6 +15,8 @@ interface UseDomViewerResult {
   hasData: boolean;
   /** False when the client has disconnected from C2 (reset to true on next DOM message). */
   clientConnected: boolean;
+  /** False when the domviewer payload is not enabled on this client (set by client-info). */
+  payloadEnabled: boolean;
   /**
    * Pass this to `useWebSocket`'s `onMessage` option so every incoming message
    * is processed synchronously — no messages are dropped due to React batching.
@@ -40,6 +42,7 @@ export function useDomViewer(): UseDomViewerResult {
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [hasData, setHasData] = useState(false);
   const [clientConnected, setClientConnected] = useState(true);
+  const [payloadEnabled, setPayloadEnabled] = useState(true);
 
   const onMessage = useCallback((event: MessageEvent) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,6 +55,12 @@ export function useDomViewer(): UseDomViewerResult {
 
     if (!msg.type) return;
 
+    if (msg.type === "client-info") {
+      setClientConnected(msg.connected);
+      setPayloadEnabled(msg.payloadEnabled);
+      return;
+    }
+
     if (msg.type === "disconnected") {
       setClientConnected(false);
       return;
@@ -60,10 +69,13 @@ export function useDomViewer(): UseDomViewerResult {
     const dvMsg = msg as DomViewerMessage;
     applyMessage(nodesRef.current, metaRef.current, dvMsg);
     setHtml(renderToHtml(nodesRef.current, metaRef.current.rootId, metaRef.current));
-    // Only count as "has data" once a real DOM rootId exists — an offline client's
-    // initial empty snapshot has no rootId and should not count as real content.
-    if (metaRef.current.rootId) setHasData(true);
-    setClientConnected(true);
+    // Only count as "has data" (and mark client as connected) once a real DOM rootId
+    // exists. An offline client's initial empty snapshot has no rootId and must not
+    // override the clientConnected=false set by client-info.
+    if (metaRef.current.rootId) {
+      setHasData(true);
+      setClientConnected(true);
+    }
 
     // Update baseUrl whenever a snapshot or meta message carries it
     if ((dvMsg.type === "snapshot" || dvMsg.type === "meta") && dvMsg.meta?.baseUrl != null) {
@@ -71,5 +83,5 @@ export function useDomViewer(): UseDomViewerResult {
     }
   }, []);
 
-  return { html, baseUrl, hasData, clientConnected, onMessage };
+  return { html, baseUrl, hasData, clientConnected, payloadEnabled, onMessage };
 }

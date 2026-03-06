@@ -18,9 +18,12 @@ function connectKeyloggerViewer(wsUrl, clientId) {
   let called = false;
 
   ws.on("message", (data) => {
+    // Skip the client-info message sent before the handler's initial message
+    const raw = data.toString();
+    try { if (JSON.parse(raw).type === "client-info") return; } catch (_) {}
     if (!called) {
       called = true;
-      firstMsgResolve(data.toString());
+      firstMsgResolve(raw);
     }
   });
 
