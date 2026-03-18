@@ -54,9 +54,13 @@ export function ToolNav({ clientId, payloads, hasData, activePath, connected }: 
         let dotColor: string | null = null;
         if (DB_BACKED_KEYS.has(key) && hasData?.[key as keyof typeof hasData]) {
           const lastDataAt = hasData.lastDataAt?.[key as "spider" | "keylogger" | "cookies"] ?? 0;
-          dotColor = hasUnseenData(clientId, key, lastDataAt) ? "bg-green-500" : "bg-gray-400";
+          dotColor = hasUnseenData(clientId, key, lastDataAt)
+            ? "bg-hacker-green pulse-green"
+            : "bg-gray-600";
         } else if (EPHEMERAL_KEYS.has(key) && isEnabled) {
-          dotColor = connected ? "bg-green-500" : "bg-red-500";
+          dotColor = connected
+            ? "bg-hacker-green pulse-green"
+            : "bg-hacker-red pulse-red";
         }
 
         return (
@@ -65,10 +69,13 @@ export function ToolNav({ clientId, payloads, hasData, activePath, connected }: 
               <Link
                 to={route(clientId)}
                 className={cn(
-                  "p-1 rounded flex flex-col items-center",
+                  "p-1 rounded flex flex-col items-center transition-all",
                   isEnabled
-                    ? cn("hover:bg-accent", isActive && "bg-accent")
-                    : "opacity-30 hover:opacity-60 transition-opacity"
+                    ? cn(
+                        "hover:text-hacker-green",
+                        isActive && "text-hacker-green bg-hacker-green/10 border-glow-green"
+                      )
+                    : "opacity-20 hover:opacity-40 transition-opacity"
                 )}
               >
                 <Icon className="h-4 w-4" />

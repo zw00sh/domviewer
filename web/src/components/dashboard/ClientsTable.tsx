@@ -70,8 +70,10 @@ export function ClientsTable({ clients, onUpdated }: Props) {
     <>
       {[...groups.entries()].map(([origin, groupClients]) => (
         <div key={origin} className="mb-6">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2 font-mono">
+          <h3 className="text-xs text-hacker-green/60 mb-2 font-mono flex items-center gap-2">
+            <span className="text-hacker-green/30">&gt;</span>
             {origin}
+            <span className="text-muted-foreground/30">({groupClients.length})</span>
           </h3>
           <Table>
             <TableHeader>
@@ -121,8 +123,11 @@ export function ClientsTable({ clients, onUpdated }: Props) {
                       {client.ip || "-"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={client.connected ? "default" : "destructive"}>
-                        {client.connected ? "connected" : "disconnected"}
+                      <Badge
+                        variant={client.connected ? "default" : "destructive"}
+                        className={client.connected ? "badge-connected" : "badge-disconnected"}
+                      >
+                        {client.connected ? "online" : "offline"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs">

@@ -33,11 +33,12 @@ export function TopBar({ clientId, currentUrl }: TopBarProps) {
 
 function GlobalTopBar() {
   return (
-    <div className="flex items-center gap-4 px-4 py-2 bg-card text-card-foreground border-b border-border text-sm">
-      <Link to="/" className="text-primary/60 hover:text-primary">
+    <div className="flex items-center gap-4 px-4 py-2 bg-card/80 text-card-foreground border-b border-border text-sm backdrop-blur-sm">
+      <Link to="/" className="text-hacker-green/60 hover:text-hacker-green glow-green transition-all">
         &larr; dashboard
       </Link>
-      <span>Global Logs</span>
+      <span className="text-muted-foreground">//</span>
+      <span>system_logs</span>
     </div>
   );
 }
@@ -70,25 +71,46 @@ function ClientTopBar({
 
   return (
     <>
-      <div className="flex items-center gap-4 px-4 py-2 bg-card text-card-foreground border-b border-border text-sm">
-        <Link to="/" className="text-primary/60 hover:text-primary">
+      <div className="flex items-center gap-4 px-4 py-2 bg-card/80 text-card-foreground border-b border-border text-sm backdrop-blur-sm">
+        <Link to="/" className="text-hacker-green/60 hover:text-hacker-green glow-green transition-all">
           &larr; dashboard
         </Link>
 
+        <span className="text-muted-foreground/40">//</span>
+
         <span className="flex items-center gap-2">
+          {/* C2 connection status dot — reflects client.connected from API poll */}
+          {client && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    "inline-block w-2 h-2 rounded-full cursor-default",
+                    client.connected
+                      ? "bg-hacker-green pulse-green"
+                      : "bg-hacker-red pulse-red"
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {client.connected ? "Connected to C2" : "Disconnected from C2"}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Truncated client ID with copy icon, tooltip shows IP + origin */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={copyId}
-                className="font-mono flex items-center gap-1 hover:text-primary transition-colors"
+                className="font-mono flex items-center gap-1 hover:text-hacker-green glow-green transition-all text-foreground/80"
               >
                 {copied ? (
-                  <Check className="h-3 w-3 text-green-500" />
+                  <Check className="h-3 w-3 text-hacker-green" />
                 ) : (
-                  <Copy className="h-3 w-3 opacity-50" />
+                  <Copy className="h-3 w-3 opacity-40" />
                 )}
-                {clientId.slice(0, 8)}…
+                {clientId.slice(0, 8)}...
               </button>
             </TooltipTrigger>
             <TooltipContent className="whitespace-pre">{tooltipContent}</TooltipContent>
@@ -97,25 +119,8 @@ function ClientTopBar({
           {/* Optional current URL (e.g. from DomViewer) */}
           {currentUrl && (
             <span className="font-mono text-muted-foreground truncate max-w-xs text-xs">
-              • {currentUrl}
+              <span className="text-hacker-green/40">@</span> {currentUrl}
             </span>
-          )}
-
-          {/* C2 connection status dot — reflects client.connected from API poll */}
-          {client && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    "inline-block w-2 h-2 rounded-full cursor-default",
-                    client.connected ? "bg-green-500" : "bg-red-500"
-                  )}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                {client.connected ? "Connected to C2" : "Disconnected from C2"}
-              </TooltipContent>
-            </Tooltip>
           )}
         </span>
 
@@ -137,7 +142,7 @@ function ClientTopBar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 hover:text-hacker-amber"
                   onClick={() => setEditOpen(true)}
                 >
                   <Pencil className="h-4 w-4" />
@@ -151,7 +156,7 @@ function ClientTopBar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-destructive hover:text-destructive"
+                  className="h-7 w-7 text-hacker-red/70 hover:text-hacker-red"
                   onClick={() => setDeleteOpen(true)}
                 >
                   <Trash2 className="h-4 w-4" />

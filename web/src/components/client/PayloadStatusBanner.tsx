@@ -66,9 +66,9 @@ export function PayloadStatusBanner({
     }
   }
 
-  const bannerBase = "flex items-center gap-3 w-full rounded-lg border px-4 py-3 text-sm";
+  const bannerBase = "flex items-center gap-3 w-full border px-4 py-3 text-sm";
 
-  // Online + disabled — show yellow enable prompt
+  // Online + disabled — show amber enable prompt
   if (clientConnected && !payloadEnabled) {
     return (
       <>
@@ -76,16 +76,15 @@ export function PayloadStatusBanner({
           role="alert"
           className={cn(
             bannerBase,
-            "border-yellow-300 bg-yellow-50 text-yellow-800",
-            "dark:border-yellow-800/60 dark:bg-yellow-950/30 dark:text-yellow-200",
+            "border-hacker-amber/30 bg-hacker-amber/5 text-hacker-amber border-glow-amber",
           )}
         >
           {Icon && (
-            <Icon className="h-4 w-4 shrink-0 text-yellow-500 dark:text-yellow-400" />
+            <Icon className="h-4 w-4 shrink-0 text-hacker-amber/70" />
           )}
           <span className="flex-1">
             <span className="font-medium">{label}</span> is not enabled for this client.{" "}
-            <span className="text-yellow-600 dark:text-yellow-400/80">
+            <span className="text-hacker-amber/60">
               Any data shown below is historical.
             </span>
           </span>
@@ -93,7 +92,7 @@ export function PayloadStatusBanner({
             size="sm"
             variant="outline"
             onClick={openEnableDialog}
-            className="shrink-0 border-yellow-400 text-yellow-800 hover:bg-yellow-100 hover:text-yellow-900 dark:border-yellow-700/60 dark:text-yellow-200 dark:hover:bg-yellow-900/40 dark:hover:text-yellow-100"
+            className="shrink-0 border-hacker-amber/30 text-hacker-amber hover:bg-hacker-amber/10 hover:text-hacker-amber hover:border-hacker-amber/50"
           >
             Enable {label}
           </Button>
@@ -116,11 +115,10 @@ export function PayloadStatusBanner({
       role="alert"
       className={cn(
         bannerBase,
-        "border-red-300 bg-red-50 text-red-800",
-        "dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200",
+        "border-hacker-red/30 bg-hacker-red/5 text-hacker-red/80 border-glow-red",
       )}
     >
-      <WifiOff className="h-4 w-4 shrink-0 text-red-500 dark:text-red-400" />
+      <WifiOff className="h-4 w-4 shrink-0 text-hacker-red/60" />
       <span>Client is offline — showing historical data.</span>
     </div>
   );

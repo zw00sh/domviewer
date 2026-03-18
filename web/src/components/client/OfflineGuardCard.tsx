@@ -15,10 +15,10 @@ interface OfflineGuardCardProps {
 export function OfflineGuardCard({ label }: OfflineGuardCardProps) {
   return (
     <div className="flex items-center justify-center py-16">
-      <Card className="w-80 text-center">
+      <Card className="w-80 text-center border-hacker-red/20 border-glow-red">
         <CardHeader className="items-center gap-2">
-          <WifiOff className="h-8 w-8 text-muted-foreground" />
-          <CardTitle>Client offline</CardTitle>
+          <WifiOff className="h-8 w-8 text-hacker-red/60" />
+          <CardTitle className="text-hacker-red/80 glow-red">Client offline</CardTitle>
           <CardDescription>
             This client is not connected and {label} has no historical data.
           </CardDescription>
