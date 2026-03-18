@@ -1,8 +1,31 @@
 # domviewer
 
-A browser-based C2 tool for security research. A modular client-side JS loader iframes the target page, connects via WebSocket, and dynamically loads pluggable payload modules (domviewer, spider, proxy, keylogger, cookies) sent by the server. Each "payload link" has a UUID and a configurable set of enabled payloads.
+A modular browser-based C2 framework for security research. Inject a single `<script>` tag into a target page to gain real-time DOM mirroring, interactive remote control, link crawling, keystroke capture, and cookie exfiltration — all streamed live to a management dashboard over WebSockets.
+
+![domviewer dashboard](docs/dashboard.png)
+
+> **For authorized security testing only.** This tool is intended for penetration testing engagements, red team exercises, CTF competitions, and security research conducted with proper authorization.
+
+## Features
+
+- **DOM Viewer** — Live read-only mirror of the target page's DOM, updated via binary delta streams
+- **Remote Control** — Interactive proxy: click, type, scroll, and navigate the target page from your browser
+- **Spider** — Crawl same-origin links and exfiltrate page content as downloadable archives
+- **Keylogger** — Capture keystrokes and form input, grouped by element with password masking
+- **Cookies** — Poll and diff `document.cookie`, tracking additions, changes, and removals over time
+- **Per-client payload control** — Enable/disable any payload per client at runtime with live push
+- **Persistent storage** — All captured data (spider results, keystrokes, cookies, logs) survives restarts via SQLite
+- **Automatic reconnection** — Client loader reconnects with exponential backoff, re-syncs payload state
 
 ## Quick Start
+
+### Docker (recommended)
+
+```bash
+docker compose up
+```
+
+### From source
 
 ```bash
 npm install
@@ -10,141 +33,151 @@ npm run build:all
 npm start
 ```
 
-- **Management dashboard**: `http://localhost:3000`
-- **C2 server**: `http://localhost:3001`
+The management dashboard will be at `http://localhost:3000` and the C2 server at `http://localhost:3001`.
+
+## Usage
+
+1. Open the dashboard and click **+ new_link** to create a payload link. Select which payloads to enable and optionally set a redirect URI.
+2. Copy the generated `<script>` tag and inject it into the target page.
+3. The client appears in the dashboard. Click into any tool to view live data.
+
+Payload links are templates — each browser that loads the script becomes an independent client with its own payload config, data, and lifecycle.
 
 ## Architecture
 
-Two independent HTTP servers share a SQLite database and runtime state:
+Two HTTP servers share a SQLite database and in-memory runtime state:
 
-- **C2 server** (port 3001): Payload WebSocket `/ws`, loader bundle `/payload.js/:linkId`
-- **Management server** (port 3000): Viewer WebSocket `/view`, REST API `/api/*`, React SPA, test pages `/test*`
+| Server | Default Port | Role |
+|---|---|---|
+| **C2** | 3001 | Serves the loader bundle, handles payload WebSocket connections from targets |
+| **Management** | 3000 | React SPA dashboard, REST API, viewer WebSocket for live data streaming |
 
 ```
 Target Browser          C2 Server (:3001)        Management Server (:3000)
-┌──────────────┐       ┌──────────────────┐      ┌────────────────────────┐
-│ loader.js    │──WS──▸│ /ws              │      │ React SPA (/)          │
-│  ├ domviewer │       │   routes messages│      │ REST API (/api/*)      │
-│  ├ proxy     │       │   to payload     │      │ Viewer WS (/view)      │
-│  ├ spider    │       │   handlers       │      │ Test site (/test*)     │
-│  ├ keylogger │       └────────┬─────────┘      └──────────┬─────────────┘
-│  └ cookies   │
-└──────────────┘                │                            │
-                                ▼                            ▼
-                         ┌─────────────┐            ┌──────────────┐
-                         │  state.js   │◂──────────▸│management.js │
-                         │  (runtime)  │            │ (API + WS)   │
-                         └──────┬──────┘            └──────────────┘
-                                │
-                                ▼
-                         ┌─────────────┐
-                         │  SQLite DB  │
-                         │  (db.js)    │
-                         └─────────────┘
++--------------+       +------------------+      +------------------------+
+| loader.js    |--WS-->| /ws              |      | React SPA (/)          |
+|  +- domviewer|       |   routes messages|      | REST API (/api/*)      |
+|  +- proxy    |       |   to payload     |      | Viewer WS (/view)      |
+|  +- spider   |       |   handlers       |      | Test site (/test*)     |
+|  +- keylogger|       +--------+---------+      +----------+-------------+
+|  +- cookies  |                |                            |
++--------------+                v                            v
+                         +-------------+            +--------------+
+                         |  state.js   |<---------->|management.js |
+                         |  (runtime)  |            | (API + WS)   |
+                         +------+------+            +--------------+
+                                |
+                                v
+                         +-------------+
+                         |  SQLite DB  |
+                         +-------------+
 ```
+
+### Data flow
+
+1. The loader iframes the target page, connects to the C2 WebSocket, and sends an `init` handshake.
+2. The C2 server validates the link, registers the client, and pushes `load` messages for each enabled payload.
+3. Each payload module runs in the target's context and streams data back via text or binary WebSocket frames.
+4. The C2 routes incoming messages to the appropriate server-side payload handler, which updates state and pushes to any connected viewer WebSockets.
+5. The React dashboard receives updates in real-time — no polling.
 
 ## Payloads
 
-### domviewer
+### DOM Viewer
 
-Captures and streams DOM state using JSON-encoded binary frames. A MutationObserver watches for changes and sends deltas every 500ms. The viewer renders the mirrored DOM as read-only HTML.
+Captures a full DOM snapshot on load, then streams incremental deltas via MutationObserver. Binary frames use a JSON-encoded format with add/remove/children/attrs/text operations. The viewer reconstructs and renders the DOM client-side.
 
-### spider
+### Remote Control (Proxy)
 
-Crawls same-origin links from the target page and reports discovered URLs. Results are persisted in SQLite.
+Creates a hidden offscreen iframe on the target, serialises its DOM, and streams it to the viewer. User interactions in the viewer (clicks, keystrokes, scrolling, form input) are relayed back and dispatched on the target's real DOM. Supports mouse events, keyboard input with synthesised InputEvents, focus tracking, value sync for form fields, and in-page navigation.
 
-### keylogger
+### Spider
 
-Attaches capture-phase `input`, `keydown`, and `change` listeners to the target's iframe document. Keystrokes and form field changes are batched and sent every 500ms. Entries are persisted in SQLite and displayed in the dashboard grouped by form element, with password fields masked by default.
+Crawls same-origin links from the target page. Discovered URLs are reported and persisted in SQLite. Supports on-demand content exfiltration — fetched pages are stored as versioned blobs and downloadable as a zip archive.
 
-### cookies
+### Keylogger
 
-Polls `document.cookie` on the target page every 2 seconds and on each iframe navigation. Only cookies accessible via JavaScript are captured — cookies with the `HttpOnly` flag are excluded by the browser's security model. Changes (new, updated, or removed cookies) are persisted in SQLite. The dashboard shows both a deduplicated "current" view (last-write-wins) and a full chronological change history.
+Attaches capture-phase `input`, `keydown`, and `change` listeners on the target document. Entries are batched every 500ms and persisted in SQLite. The dashboard groups entries by form element with collapsible detail, and masks password fields by default.
 
-### proxy
+### Cookies
 
-An interactive browser proxy that creates a hidden offscreen iframe on the victim, serialises its DOM, and streams it to the viewer. The viewer renders the DOM in a sandboxed iframe and relays user interactions back to the victim's real DOM:
+Polls `document.cookie` every 2 seconds and on each navigation. Only JavaScript-accessible cookies are captured (`HttpOnly` cookies are excluded by the browser). Changes are diffed and persisted. The dashboard shows both a deduplicated "current" view and a full chronological history.
 
-- **Mouse events**: click, dblclick, mousedown, mouseup, mouseover, mouseout
-- **Keyboard events**: keydown, keyup, with synthesised input events for text entry
-- **Focus/blur**: explicit focus tracking with write-gating to prevent `doc.write()` from destroying the active cursor during typing
-- **Value sync**: input `.value` (a DOM property, not an attribute) is round-tripped via `value-sync` messages so typed text reflects back in the viewer
-- **Navigation**: link clicks and URL bar input navigate the victim's proxy iframe
+## API
 
-## Routes
-
-### C2 server (port 3001)
+### C2 server
 
 | Route | Description |
 |---|---|
-| `GET /payload.js/:linkId` | Loader bundle with injected link ID and C2 WS URL |
-| `WS /ws` | Payload WebSocket (client loader connects here) |
+| `GET /payload.js/:linkId` | Loader bundle with injected link ID and C2 WebSocket URL |
+| `WS /ws` | Payload WebSocket |
 
-### Management server (port 3000)
+### Management server
 
+**Links**
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/api/links` | Create payload link |
+| `GET` | `/api/links` | List all links |
+| `GET` | `/api/links/:id` | Get link details |
+| `PATCH` | `/api/links/:id` | Update link template (new clients only) |
+| `DELETE` | `/api/links/:id` | Delete link |
+
+**Clients**
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/api/clients` | List all clients |
+| `GET` | `/api/clients/:id` | Get single client |
+| `PATCH` | `/api/clients/:id` | Update payloads + config (live push) |
+| `DELETE` | `/api/clients/:id` | Destroy client |
+
+**Data**
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/api/clients/:id/logs` | Client logs |
+| `GET` | `/api/logs` | Global logs |
+| `GET` | `/api/clients/:id/spider/content` | Spider content URLs |
+| `GET` | `/api/clients/:id/spider/download` | Download spider content as zip |
+| `POST` | `/api/clients/:id/spider/exfiltrate` | Trigger content exfiltration |
+| `POST` | `/api/clients/:id/spider/crawl` | Trigger crawl |
+| `GET` | `/api/clients/:id/keylogger/entries` | Keylogger entries |
+| `POST` | `/api/clients/:id/keylogger/clear` | Clear keylogger entries |
+| `GET` | `/api/clients/:id/cookies/entries` | Cookie entries |
+| `POST` | `/api/clients/:id/cookies/clear` | Clear cookie entries |
+
+**WebSocket**
 | Route | Description |
 |---|---|
-| `GET /` | React SPA dashboard |
-| `GET /test*` | Multi-page test site (static HTML from `server/test/`) |
-| `WS /view` | Viewer WebSocket (live DOM viewer, spider results, proxy, log viewer) |
-| `GET /api/config` | Server config (C2 URL) |
-| `POST /api/links` | Create payload link |
-| `GET /api/links` | List all links |
-| `GET /api/links/:id` | Get link details |
-| `PATCH /api/links/:id` | Update link payloads (DB template only) |
-| `DELETE /api/links/:id` | Delete link |
-| `GET /api/clients` | List all clients |
-| `GET /api/clients/:id` | Get single client |
-| `PATCH /api/clients/:id` | Update client payloads + config (live push) |
-| `DELETE /api/clients/:id` | Destroy client |
-| `GET /api/clients/:id/logs` | Get client logs |
-| `GET /api/logs` | Get global logs |
-| `GET /api/clients/:id/spider/content` | List exfiltrated content URLs |
-| `GET /api/clients/:id/spider/content/latest` | Get latest version of each content URL |
-| `GET /api/clients/:id/spider/content/:contentId` | Get specific content blob |
-| `GET /api/clients/:id/spider/download` | Download all spider content as zip |
-| `POST /api/clients/:id/spider/exfiltrate` | Trigger content exfiltration |
-| `POST /api/clients/:id/spider/crawl` | Trigger crawl |
-| `GET /api/clients/:id/keylogger/entries` | Get keylogger entries |
-| `POST /api/clients/:id/keylogger/clear` | Clear keylogger entries |
-| `GET /api/clients/:id/cookies/entries` | Get cookie entries |
-| `POST /api/clients/:id/cookies/clear` | Clear cookie entries |
-
-## How It Works
-
-1. Create a payload link via the dashboard (`POST /api/links`).
-2. Load `/payload.js/:linkId` on the target page. The loader iframes the target, connects to the C2 WebSocket, and receives payload modules.
-3. Each payload module (domviewer, spider, proxy, keylogger, cookies) runs in the target's context and streams data to the server via text and binary WebSocket frames.
-4. The server applies updates to per-client state and pushes them to connected viewer WebSockets.
-5. The React dashboard renders live views — read-only DOM mirror, interactive proxy, spider results, keylogger entries.
-
-Cross-origin link clicks in the captured page open in a new tab. Relative URLs and CSS `url()` references are resolved to absolute so assets load correctly in the viewer.
+| `WS /view?clientId=X&payload=Y` | Live viewer stream |
 
 ## Test Site
 
-The management server exposes a static multi-page test site at `/test*` (served from `server/test/`). To use it:
+The management server includes a built-in multi-page test site at `/test*` for development and demos:
 
-1. Create a payload link in the dashboard. Set the **Redirect URI** to `http://localhost:3000/test`.
-   > Without a redirect URI, the loader defaults to `location.origin` and will iframe the dashboard itself instead of the test page.
-2. Navigate to `http://localhost:3000/test` in a browser.
-3. Paste the `<script>` tag from the link detail page into the inject form on the test page.
+1. Create a payload link in the dashboard with **Redirect URI** set to `http://localhost:3000/test`.
+2. Open `http://localhost:3000/test` in a browser.
+3. Paste the `<script>` tag into the inject form on the test page.
 
-## Docker
+> Without a redirect URI the loader will iframe the page's own origin, which would be the dashboard itself.
 
-```bash
-# Build image
-docker build -t domviewer .
-
-# Run with docker compose (recommended — persists DB volume)
-docker compose up
-```
-
-The compose file mounts a named volume at `/app/data` so the SQLite database survives container restarts. Ports 3000 (management) and 3001 (C2) are exposed.
-
-## Environment Variables
+## Configuration
 
 | Variable | Default | Description |
 |---|---|---|
-| `C2_PORT` | `3001` | C2 server port |
-| `MGMT_PORT` | `3000` | Management server port |
-| `LOG_LEVEL` | `info` | Minimum log level printed to stdout (`debug`, `info`, `warn`, `error`). All levels are persisted to the DB regardless of this setting. |
+| `C2_PORT` | `3001` | C2 server listen port |
+| `MGMT_PORT` | `3000` | Management server listen port |
+| `LOG_LEVEL` | `info` | Console log level (`debug`, `info`, `warn`, `error`). All levels are always persisted to the database. |
+
+## Development
+
+```bash
+npm install
+npm run dev          # Watch-mode build for server bundles
+npm run dev:web      # Vite dev server for the React frontend
+npm test             # Unit tests (Vitest)
+npm run test:e2e     # E2E tests (Playwright, Chromium)
+```
+
+## License
+
+For authorized security testing and research only.
